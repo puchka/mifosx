@@ -1,18 +1,25 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests.common.loans;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.mifosplatform.integrationtests.common.Utils;
 import org.mifosplatform.integrationtests.common.accounting.Account;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 public class LoanProductTestBuilder {
 
     private static final String LOCALE = "en_GB";
-    private static final String DIGITS_AFTER_DECIMAL = "2";
-    private static final String INR = "INR";
+    private static final String USD = "USD";
     private static final String DAYS = "0";
     private static final String WEEK = "1";
     private static final String MONTHS = "2";
@@ -22,16 +29,38 @@ public class LoanProductTestBuilder {
     private static final String EQUAL_INSTALLMENTS = "1";
     private static final String DECLINING_BALANCE = "0";
     private static final String FLAT_BALANCE = "1";
-    private static final String MIFOS_STANDARD_STRATEGY = "1";
+    public static final String MIFOS_STANDARD_STRATEGY = "1";
     // private static final String HEAVENS_FAMILY_STRATEGY ="2";
     // private static final String CREO_CORE_STRATEGY ="3";
-    // private static final String RBI_INDIA_STRATEGY ="4";
+    public static final String RBI_INDIA_STRATEGY = "4";
+
+    public static final String RECALCULATION_FREQUENCY_TYPE_SAME_AS_REPAYMENT_PERIOD = "1";
+    public static final String RECALCULATION_FREQUENCY_TYPE_DAILY = "2";
+    public static final String RECALCULATION_FREQUENCY_TYPE_WEEKLY = "3";
+    public static final String RECALCULATION_FREQUENCY_TYPE_MONTHLY = "4";
+
+    public static final String RECALCULATION_STRATEGY_RESCHEDULE_NEXT_REPAYMENTS = "1";
+    public static final String RECALCULATION_STRATEGY_REDUCE_NUMBER_OF_INSTALLMENTS = "2";
+    public static final String RECALCULATION_STRATEGY_REDUCE_EMI_AMOUN = "3";
+
+    public static final String RECALCULATION_COMPOUNDING_METHOD_NONE = "0";
+    public static final String RECALCULATION_COMPOUNDING_METHOD_INTEREST = "1";
+    public static final String RECALCULATION_COMPOUNDING_METHOD_FEE = "2";
+    public static final String RECALCULATION_COMPOUNDING_METHOD_INTEREST_AND_FEE = "3";
+
     private static final String NONE = "1";
     private static final String CASH_BASED = "2";
-    private static final String ACCRUAL_BASED = "3";
+    private static final String ACCRUAL_PERIODIC = "3";
+    private static final String ACCRUAL_UPFRONT = "4";
+
+    public static final String INTEREST_APPLICABLE_STRATEGY_REST_DATE = "2";
+    public static final String INTEREST_APPLICABLE_STRATEGY_ON_PRE_CLOSE_DATE = "1";
+
+    private String digitsAfterDecimal = "2";
+    private String inMultiplesOf = "0";
 
     private String nameOfLoanProduct = Utils.randomNameGenerator("LOAN_PRODUCT_", 6);
-    private String shortName = Utils.randomNameGenerator("", 4);
+    private final String shortName = Utils.randomNameGenerator("", 4);
     private String principal = "10000.00";
     private String numberOfRepayments = "5";
     private String repaymentFrequency = MONTHS;
@@ -39,24 +68,60 @@ public class LoanProductTestBuilder {
     private String interestRatePerPeriod = "2";
     private String interestRateFrequencyType = MONTHS;
     private String interestType = FLAT_BALANCE;
+    private String overdueDaysForNPA = "5";
     private String interestCalculationPeriodType = CALCULATION_PERIOD_SAME_AS_REPAYMENT_PERIOD;
     private String inArrearsTolerance = "0";
-    private final String transactionProcessingStrategy = MIFOS_STANDARD_STRATEGY;
+    private String transactionProcessingStrategy = MIFOS_STANDARD_STRATEGY;
     private String accountingRule = NONE;
-    private final String currencyCode = INR;
+    private final String currencyCode = USD;
     private String amortizationType = EQUAL_INSTALLMENTS;
     private String minPrincipal = "1000.00";
-    private String maxPrincipal = "100000.00";
+    private String maxPrincipal = "10000000.00";
     private Account[] accountList = null;
 
-    public String build() {
-        final HashMap<String, String> map = new HashMap<String, String>();
+    private Boolean multiDisburseLoan = false;
+    private final String outstandingLoanBalance = "35000";
+    private final String maxTrancheCount = "3";
 
+    private Boolean isInterestRecalculationEnabled = false;
+    private String daysInYearType = "1";
+    private String daysInMonthType = "1";
+    private String interestRecalculationCompoundingMethod = "0";
+    private String preCloseInterestCalculationStrategy = INTEREST_APPLICABLE_STRATEGY_ON_PRE_CLOSE_DATE;
+    private String rescheduleStrategyMethod = "1";
+    private String recalculationRestFrequencyType = "1";
+    private String recalculationRestFrequencyInterval = "0";
+    private String recalculationRestFrequencyDate = null;
+    private String recalculationCompoundingFrequencyType = null;
+    private String recalculationCompoundingFrequencyInterval = null;
+    private String recalculationCompoundingFrequencyDate = null;
+    private String minimumDaysBetweenDisbursalAndFirstRepayment = null;
+    private Boolean holdGuaranteeFunds = null;
+    private String mandatoryGuarantee = null;
+    private String minimumGuaranteeFromOwnFunds = null;
+    private String minimumGuaranteeFromGuarantor = null;
+    private String isArrearsBasedOnOriginalSchedule = null;
+    private String graceOnPrincipalPayment = "1";
+    private String graceOnInterestPayment = "1";
+    private JsonObject allowAttributeOverrides = null;
+
+    public String build(final String chargeId) {
+        final HashMap<String, Object> map = new HashMap<>();
+
+        if (chargeId != null) {
+            List<HashMap<String, String>> charges = new ArrayList<>();
+            HashMap<String, String> chargeMap = new HashMap<>();
+            chargeMap.put("id", chargeId);
+            charges.add(chargeMap);
+            map.put("charges", charges);
+        }
         map.put("name", this.nameOfLoanProduct);
         map.put("shortName", this.shortName);
         map.put("currencyCode", this.currencyCode);
         map.put("locale", LOCALE);
-        map.put("digitsAfterDecimal", DIGITS_AFTER_DECIMAL);
+        map.put("dateFormat", "dd MMMM yyyy");
+        map.put("digitsAfterDecimal", digitsAfterDecimal);
+        map.put("inMultiplesOf", inMultiplesOf);
         map.put("principal", this.principal);
         map.put("numberOfRepayments", this.numberOfRepayments);
         map.put("repaymentEvery", this.repaymentPeriod);
@@ -71,11 +136,52 @@ public class LoanProductTestBuilder {
         map.put("accountingRule", this.accountingRule);
         map.put("minPrincipal", this.minPrincipal);
         map.put("maxPrincipal", this.maxPrincipal);
+        map.put("overdueDaysForNPA", this.overdueDaysForNPA);
+        if (this.minimumDaysBetweenDisbursalAndFirstRepayment != null) {
+            map.put("minimumDaysBetweenDisbursalAndFirstRepayment", this.minimumDaysBetweenDisbursalAndFirstRepayment);
+        }
+        if (multiDisburseLoan) {
+            map.put("multiDisburseLoan", this.multiDisburseLoan);
+            map.put("maxTrancheCount", this.maxTrancheCount);
+            map.put("outstandingLoanBalance", this.outstandingLoanBalance);
+        }
 
-        if (this.accountingRule.equals(ACCRUAL_BASED)) {
+        if (this.accountingRule.equals(ACCRUAL_UPFRONT) || this.accountingRule.equals(ACCRUAL_PERIODIC)) {
             map.putAll(getAccountMappingForAccrualBased());
         } else if (this.accountingRule.equals(CASH_BASED)) {
             map.putAll(getAccountMappingForCashBased());
+        }
+        map.put("daysInMonthType", this.daysInMonthType);
+        map.put("daysInYearType", this.daysInYearType);
+        map.put("isInterestRecalculationEnabled", this.isInterestRecalculationEnabled);
+        if (this.isInterestRecalculationEnabled) {
+            map.put("interestRecalculationCompoundingMethod", this.interestRecalculationCompoundingMethod);
+            map.put("rescheduleStrategyMethod", this.rescheduleStrategyMethod);
+            map.put("recalculationRestFrequencyType", recalculationRestFrequencyType);
+            map.put("recalculationRestFrequencyInterval", recalculationRestFrequencyInterval);
+            map.put("recalculationRestFrequencyDate", recalculationRestFrequencyDate);
+            if (!RECALCULATION_COMPOUNDING_METHOD_NONE.equals(this.interestRecalculationCompoundingMethod)) {
+                map.put("recalculationCompoundingFrequencyType", recalculationCompoundingFrequencyType);
+                map.put("recalculationCompoundingFrequencyInterval", recalculationCompoundingFrequencyInterval);
+                map.put("recalculationCompoundingFrequencyDate", recalculationCompoundingFrequencyDate);
+            }
+            map.put("preClosureInterestCalculationStrategy", preCloseInterestCalculationStrategy);
+            if (isArrearsBasedOnOriginalSchedule != null) {
+                map.put("isArrearsBasedOnOriginalSchedule", isArrearsBasedOnOriginalSchedule);
+            }
+        }
+        if (holdGuaranteeFunds != null) {
+            map.put("holdGuaranteeFunds", this.holdGuaranteeFunds);
+            if (this.holdGuaranteeFunds) {
+                map.put("mandatoryGuarantee", this.mandatoryGuarantee);
+                map.put("minimumGuaranteeFromGuarantor", this.minimumGuaranteeFromGuarantor);
+                map.put("minimumGuaranteeFromOwnFunds", this.minimumGuaranteeFromOwnFunds);
+            }
+        }
+        map.put("graceOnPrincipalPayment", graceOnPrincipalPayment);
+        map.put("graceOnInterestPayment", graceOnInterestPayment);
+        if (allowAttributeOverrides != null) {
+            map.put("allowAttributeOverrides", this.allowAttributeOverrides);
         }
         return new Gson().toJson(map);
     }
@@ -160,6 +266,11 @@ public class LoanProductTestBuilder {
         return this;
     }
 
+    public LoanProductTestBuilder withOverdueDaysForNPA(String days) {
+        this.overdueDaysForNPA = days;
+        return this;
+    }
+
     public LoanProductTestBuilder withInterestCalculationPeriodTypeAsDays() {
         this.interestCalculationPeriodType = DAYS;
         return this;
@@ -186,14 +297,25 @@ public class LoanProductTestBuilder {
         return this;
     }
 
-    public LoanProductTestBuilder withAccountingRuleAsAccrualBased(final Account[] account_list) {
-        this.accountingRule = ACCRUAL_BASED;
+    public LoanProductTestBuilder withAccountingRuleUpfrontAccrual(final Account[] account_list) {
+        this.accountingRule = ACCRUAL_UPFRONT;
         this.accountList = account_list;
         return this;
     }
 
+    public LoanProductTestBuilder withAccountingRulePeriodicAccrual(final Account[] account_list) {
+        this.accountingRule = ACCRUAL_PERIODIC;
+        this.accountList = account_list;
+        return this;
+    }
+
+    public LoanProductTestBuilder withTranches(boolean multiDisburseLoan) {
+        this.multiDisburseLoan = multiDisburseLoan;
+        return this;
+    }
+
     private Map<String, String> getAccountMappingForCashBased() {
-        final Map<String, String> map = new HashMap<String, String>();
+        final Map<String, String> map = new HashMap<>();
         for (int i = 0; i < this.accountList.length; i++) {
             if (this.accountList[i].getAccountType().equals(Account.AccountType.ASSET)) {
                 final String ID = this.accountList[i].getAccountID().toString();
@@ -206,6 +328,7 @@ public class LoanProductTestBuilder {
                 map.put("interestOnLoanAccountId", ID);
                 map.put("incomeFromFeeAccountId", ID);
                 map.put("incomeFromPenaltyAccountId", ID);
+                map.put("incomeFromRecoveryAccountId", ID);
             }
             if (this.accountList[i].getAccountType().equals(Account.AccountType.EXPENSE)) {
                 final String ID = this.accountList[i].getAccountID().toString();
@@ -220,7 +343,7 @@ public class LoanProductTestBuilder {
     }
 
     private Map<String, String> getAccountMappingForAccrualBased() {
-        final Map<String, String> map = new HashMap<String, String>();
+        final Map<String, String> map = new HashMap<>();
         for (int i = 0; i < this.accountList.length; i++) {
             if (this.accountList[i].getAccountType().equals(Account.AccountType.ASSET)) {
                 final String ID = this.accountList[i].getAccountID().toString();
@@ -237,6 +360,7 @@ public class LoanProductTestBuilder {
                 map.put("interestOnLoanAccountId", ID);
                 map.put("incomeFromFeeAccountId", ID);
                 map.put("incomeFromPenaltyAccountId", ID);
+                map.put("incomeFromRecoveryAccountId", ID);
             }
             if (this.accountList[i].getAccountType().equals(Account.AccountType.EXPENSE)) {
                 final String ID = this.accountList[i].getAccountID().toString();
@@ -251,4 +375,87 @@ public class LoanProductTestBuilder {
         return map;
     }
 
+    public LoanProductTestBuilder withAccounting(final String accountingRule, final Account[] account_list) {
+        this.accountingRule = accountingRule;
+        this.accountList = account_list;
+        return this;
+    }
+
+    public LoanProductTestBuilder currencyDetails(final String digitsAfterDecimal, final String inMultiplesOf) {
+        this.digitsAfterDecimal = digitsAfterDecimal;
+        this.inMultiplesOf = inMultiplesOf;
+        return this;
+    }
+
+    public LoanProductTestBuilder withRepaymentStrategy(final String transactionProcessingStrategy) {
+        this.transactionProcessingStrategy = transactionProcessingStrategy;
+        return this;
+    }
+
+    public LoanProductTestBuilder withDaysInMonth(final String daysInMonthType) {
+        this.daysInMonthType = daysInMonthType;
+        return this;
+    }
+
+    public LoanProductTestBuilder withDaysInYear(final String daysInYearType) {
+        this.daysInYearType = daysInYearType;
+        return this;
+    }
+
+    public LoanProductTestBuilder withInterestRecalculationDetails(final String interestRecalculationCompoundingMethod,
+            final String rescheduleStrategyMethod, String preCloseInterestCalculationStrategy) {
+        this.isInterestRecalculationEnabled = true;
+        this.interestRecalculationCompoundingMethod = interestRecalculationCompoundingMethod;
+        this.rescheduleStrategyMethod = rescheduleStrategyMethod;
+        this.preCloseInterestCalculationStrategy = preCloseInterestCalculationStrategy;
+        return this;
+    }
+
+    public LoanProductTestBuilder withInterestRecalculationRestFrequencyDetails(final String recalculationRestFrequencyType,
+            final String recalculationRestFrequencyInterval, final String recalculationRestFrequencyDate) {
+        this.isInterestRecalculationEnabled = true;
+        this.recalculationRestFrequencyType = recalculationRestFrequencyType;
+        this.recalculationRestFrequencyInterval = recalculationRestFrequencyInterval;
+        this.recalculationRestFrequencyDate = recalculationRestFrequencyDate;
+        return this;
+    }
+    
+    public LoanProductTestBuilder withInterestRecalculationCompoundingFrequencyDetails(final String recalculationCompoundingFrequencyType,
+            final String recalculationCompoundingFrequencyInterval, final String recalculationCompoundingFrequencyDate) {
+        this.isInterestRecalculationEnabled = true;
+        this.recalculationCompoundingFrequencyType = recalculationCompoundingFrequencyType;
+        this.recalculationCompoundingFrequencyInterval = recalculationCompoundingFrequencyInterval;
+        this.recalculationCompoundingFrequencyDate = recalculationCompoundingFrequencyDate;
+        return this;
+    }
+
+    public LoanProductTestBuilder withMinimumDaysBetweenDisbursalAndFirstRepayment(final String minimumDaysBetweenDisbursalAndFirstRepayment) {
+        this.minimumDaysBetweenDisbursalAndFirstRepayment = minimumDaysBetweenDisbursalAndFirstRepayment;
+        return this;
+    }
+
+    public LoanProductTestBuilder withArrearsConfiguration() {
+        this.isArrearsBasedOnOriginalSchedule = "true";
+        return this;
+    }
+
+    public LoanProductTestBuilder withOnHoldFundDetails(final String mandatoryGuarantee, final String minimumGuaranteeFromGuarantor,
+            final String minimumGuaranteeFromOwnFunds) {
+        this.holdGuaranteeFunds = true;
+        this.mandatoryGuarantee = mandatoryGuarantee;
+        this.minimumGuaranteeFromGuarantor = minimumGuaranteeFromGuarantor;
+        this.minimumGuaranteeFromOwnFunds = minimumGuaranteeFromOwnFunds;
+        return this;
+    }
+
+    public LoanProductTestBuilder withMoratorium(String principal, String interest) {
+        this.graceOnPrincipalPayment = principal;
+        this.graceOnInterestPayment = interest;
+        return this;
+    }
+
+    public LoanProductTestBuilder withLoanProductConfiguration(JsonObject loanProductConfigurableAttributes) {
+        this.allowAttributeOverrides = loanProductConfigurableAttributes;
+        return this;
+    }
 }

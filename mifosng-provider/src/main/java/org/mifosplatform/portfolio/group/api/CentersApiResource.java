@@ -53,7 +53,7 @@ import org.mifosplatform.portfolio.group.data.CenterData;
 import org.mifosplatform.portfolio.group.data.GroupGeneralData;
 import org.mifosplatform.portfolio.group.data.StaffCenterData;
 import org.mifosplatform.portfolio.group.service.CenterReadPlatformService;
-import org.mifosplatform.portfolio.group.service.SearchParameters;
+import org.mifosplatform.infrastructure.core.service.SearchParameters;
 import org.mifosplatform.portfolio.meeting.data.MeetingData;
 import org.mifosplatform.portfolio.meeting.service.MeetingReadPlatformService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,8 +148,9 @@ public class CentersApiResource {
                     GroupingTypesApiConstants.STAFF_CENTER_RESPONSE_DATA_PARAMETERS);
         }
         final PaginationParameters parameters = PaginationParameters.instance(paged, offset, limit, orderBy, sortOrder);
+        final Boolean isOrphansOnly = false;
         final SearchParameters searchParameters = SearchParameters.forGroups(sqlSearch, officeId, staffId, externalId, name, hierarchy,
-                offset, limit, orderBy, sortOrder);
+                offset, limit, orderBy, sortOrder, isOrphansOnly);
         if (parameters.isPaged()) {
             final Page<CenterData> centers = this.centerReadPlatformService.retrievePagedAll(searchParameters, parameters);
             return this.toApiJsonSerializer.serialize(settings, centers, GroupingTypesApiConstants.CENTER_RESPONSE_DATA_PARAMETERS);
@@ -279,9 +280,17 @@ public class CentersApiResource {
             final CommandWrapper commandRequest = builder.closeCenter(centerId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
             return this.toApiJsonSerializer.serialize(result);
+        } else if (is(commandParam, "associateGroups")) {
+            final CommandWrapper commandRequest = builder.associateGroupsToCenter(centerId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            return this.toApiJsonSerializer.serialize(result);
+        } else if (is(commandParam, "disassociateGroups")) {
+            final CommandWrapper commandRequest = builder.disassociateGroupsFromCenter(centerId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            return this.toApiJsonSerializer.serialize(result);
         } else {
             throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "activate", "generateCollectionSheet",
-                    "createRole" });
+                    "saveCollectionSheet", "close", "associateGroups", "disassociateGroups" });
         }
 
     }
@@ -300,7 +309,7 @@ public class CentersApiResource {
 
         final AccountSummaryCollectionData groupAccount = this.accountDetailsReadPlatformService.retrieveGroupAccountDetails(centerId);
 
-        final Set<String> GROUP_ACCOUNTS_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("loanAccounts", "savingsAccounts",
+        final Set<String> GROUP_ACCOUNTS_DATA_PARAMETERS = new HashSet<>(Arrays.asList("loanAccounts", "savingsAccounts",
                 "memberLoanAccounts", "memberSavingsAccounts"));
 
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());

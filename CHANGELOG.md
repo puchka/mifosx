@@ -6,6 +6,28 @@ See VERSIONING (https://github.com/openMF/mifosx/blob/master/VERSIONING.md) for 
 Releases
 ===============
 
+1. 02 Dec 2015 - 15.12.1.RELEASE
+1. 18 Nov 2015 - 15.11.2.RELEASE
+1. 04 Nov 2015 - 15.11.1.RELEASE
+1. 21 Oct 2015 - 15.10.2.RELEASE
+1. 20 Oct 2015 - 15.10.1.RELEASE
+1. 21 Sep 2015 - 15.09.4.RELEASE
+1. 15 Sep 2015 - 15.09.3.RELEASE
+1. 09 Sep 2015 - 15.09.2.RELEASE
+1. 08 Sep 2015 - 15.09.1.RELEASE
+1. 05 Sep 2015 - 15.09.RELEASE
+1. 18 May 2015 - 15.03.1.RELEASE
+1. 06 Apr 2015 - 15.03.RELEASE
+1. 22 Dec 2014 - 1.26.0.RELEASE
+1. 01 Nov 2014 - 1.25.1.RELEASE
+1. 12 Oct 2014 - 1.25.0.RELEASE
+1. 10 Jul 2014 - 1.24.0.RELEASE
+1. 16 Jun 2014 - 1.23.1.RELEASE
+1. 15 Jun 2014 - 1.23.0.RELEASE
+1. 30 Apr 2014 - 1.22.0.RELEASE
+1. 30 Mar 2014 - 1.21.0.RELEASE
+1. 18 Mar 2014 - 1.20.1.RELEASE
+1. 16 Mar 2014 - 1.20.0.RELEASE
 1. 04 Mar 2014 - 1.19.0.RELEASE
 1. 23 Feb 2014 - 1.18.0.RELEASE
 1. 21 Feb 2014 - 1.17.1.RELEASE
@@ -22,15 +44,15 @@ Releases
 1. 22 Oct 2013 - 1.13.1.RELEASE
 1. 19 Oct 2013 - 1.13.0.RELEASE
 1. 16 Oct 2013 - 1.12.0.RELEASE
-1. 7 Oct 2013 - 1.11.1.RELEASE
-1. 5 Oct 2013 - 1.11.0.RELEASE
-1. 4 Oct 2013 - 1.10.3.RELEASE
+1. 07 Oct 2013 - 1.11.1.RELEASE
+1. 05 Oct 2013 - 1.11.0.RELEASE
+1. 04 Oct 2013 - 1.10.3.RELEASE
 1. 22 Sep 2013 - 1.10.2.RELEASE
 1. 20 Sep 2013 - 1.10.1.RELEASE
 1. 19 Sep 2013 - 1.10.0.RELEASE
 1. 18 Sep 2013 - 1.9.2.RELEASE
 1. 10 Sep 2013 - 1.9.1.RELEASE
-1. 8 Sep 2013 - 1.9.0.RELEASE
+1. 08 Sep 2013 - 1.9.0.RELEASE
 1. 21 Aug 2013 - 1.8.1.RELEASE
 1. 20 Aug 2013 - 1.8.0.RELEASE
 1. 14 Aug 2013 - 1.7.2.RELEASE
@@ -58,6 +80,942 @@ Releases
 1. 10 April 2013 - 0.11.2.beta
 1. 05 April 2013 - 0.11.1.beta
 1. 05 April 2013 - 0.11.0.beta
+
+15.12.1.RELEASE
+=============
+This release includes first part of Social Performance Management Framework.
+This release also includes few bug fixes as mentioned below.
+
+Platform & API
+
+New Features & Improvements
+Following stories of Social Performance Management Framework Epic
+ - [MIFOSX-1961] - Create new survey
+ - [MIFOSX-1962] - Add general information
+ - [MIFOSX-1963] - Add questions to a survey
+ - [MIFOSX-1964] - Add look-up tables
+ - [MIFOSX-1965] - Assign default look-up table
+
+Bugs
+ - [MIFOSX-2184] - As a user I want my penalties only to apply to new loans that go overdue
+ - [MIFOSX-2313] - Loan provisioning entries not getting created for multi tranche loans if first tranche disbursement date is back dated
+ - [MIFOSX-2322] - Template-User defined report is not working as expected
+ - [MIFOSX-2348] - incorrect error Insufficient account balance due to guarantors funds onhold
+ - [MIFOSX-2363] - Repayment schedule generated after early repayment with interest recalculation is not proper
+ - [MIFOSX-2368] - For the Multi tranche Loans with Equal Principal payments, last installment is not calculating properly
+ 
+Community-App
+
+Bugs
+ - [MIFOSX-2058] - Opening Screen for Non-Admin Users
+ - [MIFOSX-2327] - Does not come back to group, when cancel transfer clients
+ - [MIFOSX-2362] - Not able to save modify loan aplication after undo disburse and undo approval
+
+15.11.2.RELEASE
+=============
+This release introduces floating rates feature.
+This release also includes few bug fixes as mentioned below.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1761] - Add support for floating interest rates for loan
+
+Bugs
+ - All issues found during testing of floating interest rates feature
+ - [MIFOSX-2328] - In Loan rescheduling if repayment date is changed the in Account details page Maturity date is not getting updated
+ 
+Community-App
+
+New Features & Improvements
+ - [MIFOSX-1761] - Add support for floating interest rates for loan
+
+Bugs
+ - [MIFOSX-2072] - 'validation.msg.invalid.decimal.format' Error in number fields in case the decimal symbol of current locale is comma
+ - [MIFOSX-2113] - Required some fields mandatory at the time of client creation
+
+15.11.1.RELEASE
+=============
+This release fixes critical issues in Loan Provisioning Feature and add some UI enhancements.
+This release also includes few bug fixes as mentioned below.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-2313] - All critical issues in Loan Provisioning
+ - [MIFOSX-2303] - Add Product/Branch/Category filtering to Loan Provisioning report
+
+Bugs
+ - [MIFOSX-2320] - Not able to make repayment after second tranche disbursement 
+ - [MIFOSX-2045] - Clarify New Loan Repayment Strategy Wording 
+ - [MIFOSX-2335] - fix removing a charge on a recalculateLoanSchedule
+ - [Mifosx-2334] - Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction
+ 
+Community-App
+
+ - Localisation updates
+ - [MIFOSX-2308] - Issues in Loan Provisioning Client Side
+ - [MIFOSX-2303] - Add Product/Branch/Category filtering to Loan Provisioning report
+ - [MIFOSX-2309] - By Clicking action not able to select product from "All Products" field in "Create Provisioning Criteria" page
+ - [MIFOSX-2170] - Error message displayed while creating the datatable is not proper
+
+15.10.2.RELEASE
+=============
+This release is made to fix a critical bug in loan provisioning.
+Bugs
+ - [MIFOSX-2307] - Provisioning entries are not generated if tenant have group loans 
+
+15.10.1.RELEASE
+=============
+This release introduces loan loss provisioning feature. 
+Performance improvements to interest recalculation and few more bug fixes are also part of this release.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1895] - Loan Provisioning
+ - [MIFOSX-2228] - Performance improvements to interest recalculation
+
+Bugs
+ - [MIFOSX-2271] - no journal Entry on already accrued fee which has been waived 
+ - [MIFOSX-2289] - Journal Entry not created for new transaction when recalculate interest batch job is ran. 
+ - [MIFOSX-851] - Validation of staff status during the client creation, loan creation etc workflow
+ - [CC-18] - Add loan pupose to balance outstanding report
+ 
+Community-App
+ - Localisation updates
+ - [MIFOSX-2081] - Dropdowns are using values directly from API instead of using translation
+ 
+15.09.4.RELEASE
+=============
+This release introduces linkage between loan repayment schedule and transactions. Also few bug fixes related to tranche loans.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-2227] - Introduce Linkages between Loan repayment schedule and Transactions
+
+Bugs
+ - [MIFOSX-2240] - Charges added while submitting the loan application is not getting displayed after submitting the application for specified due date and Installment charges
+ - [MIFOSX-2258] - Do not allow rescheduling of loans which support interest recalculation and Tranche disbursement
+ - [MIFOSX-2259] - The tranche charge definition should allow only FLAT or PERCENT_OF_DISBURSEMENT_AMOUNT
+
+15.09.3.RELEASE
+=============
+This release adds Loan rescheduling feature and couple of bug fixes on repayments.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1523] - Loan rescheduling. https://mifosforge.jira.com/wiki/display/projects/Loan+rescheduling
+
+Bugs
+ - [MIFOSX-2123] - For Equal principal payments advance repayment with interest recalculation is not working as expected
+ - [MIFOSX-2209] - Reversing a repayment on a loan disbursed to a savings account reverses the amount disbursed to the savings account
+
+
+Community-App
+
+New Features & Improvements
+ - [MIFOSX-1523] - Loan rescheduling. https://mifosforge.jira.com/wiki/display/projects/Loan+rescheduling
+ - Localisation updates from https://translatewiki.net.
+
+15.09.2.RELEASE
+=============
+This feature release adds optional support for Oauth2 . A bug fix for a regression issue around productive collection sheet is also shipped in this release
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1746] - Oauth2 for the MifosX platform
+
+Bugs
+ - [MIFOSX-2199] - Not able to generate productive collection sheet displays internal server error
+
+
+15.09.1.RELEASE
+=============
+Bug Release
+
+Platform & API
+
+Bugs
+ - [MIFOSX-2195] - Not able to submit the new loan application for a client with charges attached
+
+15.09.RELEASE
+=============
+
+This Feature release ships work on new functionality like Client Fees, Per-tranche Loan charges and new set of Pentaho reports.
+
+Enhancements to the platform include the ability to configure rounding modes used throught the system, connecting to replicated servers for reporting , API's for updating details of external services (email, S3) and improvements around Seach API's and performance of certain batch Jobs.
+
+Please note that this release ships schema changes to the mifosplatform-tenants database.
+
+New Features & Improvements
+
+ - [MIFOSX-2180] - One Time Client Fees
+ - [MIFOSX-1870] - Ability to collect charge on disbursement for tranche loans during each tranch disbursement
+ - [MIFOSX-2148] - Make Rounding Mode as configurable throughout Mifos
+ - [MIFOSX-2012] - Collection Report
+ - [MIFOSX-2013] - Disbursal Report
+ - [MIFOSX-2015] - Balance Outstanding Report
+ - [MIFOSX-2016] - Active loan Summary Per Branch
+ - [MIFOSX-2135] - Ability to read/update Organizational credentials (S3 account)
+ - [MIFOSX-2153] - Add ability to configure reports related requests to be directed to a seperate server instance
+ - [MIFOSX-2163] - Performance improvement for interest recalculation scheduler job
+ - [MIFOSX-2151] - Performance improvement for overdue charge scheduler job
+ - [MIFOSX-2152] - Performance improvement for Accrual scheduler job
+ - [MIFOSX-2166] - Move accrual job transaction scope from repayment schedule level to loan level
+ - [MIFOSX-2168] - Performance improvement for interest posting scheduler job
+ - [MIFOSX-1992] - Introduce account# for Group and Centers
+ - [MIFOSX-2038] - Search API should allow "exact" or "like" search
+ - [MIFOSX-2039] - Improvements to performance of Search API implementation
+ - [MIFOSX-2122] - Ability to export pentaho reports in Excel 2007 and above (xlsx) format
+ - [MIFOSX-2136] - Make Organizational email configuration editable
+ - [MIFOSX-2063] - Ship barebones database with every release
+ - [MIFOSX-1935] - Should allow to delete the role if the user attached with that role got deleted
+ - [MIFOSX-2157] - Add a column to the c_configuration table to mark some configuration as trap door
+ - [MIFOSX-1923] - Tranche loans should support disbursement fees with each disbursement
+
+
+Bugs
+
+ - [MIFOSX-1573] - when closed clients are activated again the closed on date should be null
+ - [MIFOSX-1578] - Not able to save collection sheet if any client having JLG loan with approved state under Group
+ - [MIFOSX-1581] - Interest is not getting calculated in JLG loan for backdated disbursement and meeting falls on future date
+ - [MIFOSX-1592] - Global Search on Group Loan Account Number doesn't work
+ - [MIFOSX-1636] - Loan with Moratorium on Principal / Interest (with interest recalculation) is displaying improper installments
+ - [MIFOSX-1658] - In center summary: Active clients loan is not working as expected
+ - [MIFOSX-1659] - client submitted date is not working as expected
+ - [MIFOSX-1712] - Not able approve the Tranche loan if the loan amount is modified during approval stage
+ - [MIFOSX-1765] - Changing future meetings is not working as expected for the rescheduled loans
+ - [MIFOSX-1773] - Multiple schedule being generated for a particular loan account.
+ - [MIFOSX-1775] - If calendar is created at Center level, should not allowed to edit the same in Group level
+ - [MIFOSX-1788] - Waive interest is not working as expected
+ - [MIFOSX-1874] - Staff Assigment History Report is missing
+ - [MIFOSX-1881] - Bugs With Centers
+ - [MIFOSX-1933] - View Standing instructions page displaying wrong destination
+ - [MIFOSX-2025] - Unable to access loan account page/loan page does not load after a multi-disbursal loan is disbursed
+ - [MIFOSX-2033] - Issues related to Manage roles and permissions functionality.
+ - [MIFOSX-2047] - Unable to Edit Hooks
+ - [MIFOSX-2049] - Not able to withdraw amount from savings account if product is defined as overdraft ( but Max Overdraft limit is not defined)
+ - [MIFOSX-2050] - Issue in running client loan Account schedule report
+ - [MIFOSX-2053] - After tranche loan disbursement not able to add tranche in "Add disbursement details" page
+ - [MIFOSX-2054] - No proper error message is displayed if "Deposit Frequency Same as Group/Center meeting" checkbox is selected for individual client while submitting the application.
+ - [MIFOSX-2061] - Charges For Savings are not office specific even office specific products are enabled
+ - [MIFOSX-2062] - Gradle task for restoring tenant databases does not work
+ - [MIFOSX-2065] - Date format not getting updated in User settings
+ - [MIFOSX-2067] - Localization for Angular Components does not work
+ - [MIFOSX-2074] - Reports API (Stretchy and Pentaho) set wrong mime-type for CSV exports
+ - [MIFOSX-2075] - Not able to view Repayment schedule during Modify
+ - [MIFOSX-2085] - If First repayment date is defined then interest is not getting calculated properly for early repayments with interest recalculation
+ - [MIFOSX-2096] - Loan purpose added while submitting the Bulk JLG Loan application is not getting reflected in Loan page
+ - [MIFOSX-2102] - Loan application "submittedOnDate" property compared with server date instead of tenant date
+ - [MIFOSX-2103] - Manage employees display is not working as expected
+ - [MIFOSX-2117] - Unable to create user - with auto email generate password option
+ - [MIFOSX-2118] - The Specific due date charge that is applied second is not collected in RBI Strategy for loans
+ - [MIFOSX-2121] - Active loan Report - Export CSV is not working as expected
+ - [MIFOSX-2129] - Submitting Collection sheet for zero repayments create an entry in Loan trasaction page
+ - [MIFOSX-2131] - Unable to do add journal entry (on Ubuntu)
+ - [MIFOSX-2138] - Not able to make repayment on any date between two tranches disbursed dates
+ - [MIFOSX-2143] - Manage datatables in demo version is not working as expected
+ - [MIFOSX-2158] - Commands Registry is not populated with all the CommandHandler implementations
+ - [MIFOSX-2165] - Not able to create loan with interest recalcualtion after 600 loans are created
+ - [MIFOSX-2169] - Not able to submit JLG Loan application displays internal server error
+ - [MIFOSX-761] - Data Import Tool Clients with same name are missing while downloading loan template
+ - [MIFOSX-2090] - Fix Typos with payment types documentation
+
+
+Community-App
+
+ - [MIFOSX-899] - Community App triggers authentication when running pentaho reports for the first time
+ - [MIFOSX-1607] - Filters on lists throughout Mifos X should retrieve all data that meets the filter criteria, not just the data already displayed.
+ - [MIFOSX-1939] - UI improvements for viewing loan and savings transaction reports and receipts
+ - [MIFOSX-2030] - UI for Maker/Checker & Roles Improvement
+ - [MIFOSX-2040] - Usability enhancements for Global Search
+ - [MIFOSX-2083] - UI improvements for List Standing Instructions page
+ - [MIFOSX-2100] - Dropdowns in the report must be searchable while executing the report
+ - [MIFOSX-2101] - Capitalization of 'pagination: Previous' in Keyboard Shortcuts
+ - [MIFOSX-2105] - Active Status Color should be Light Green or Florescent Green
+ - [MIFOSX-1258] - No option to translate system defined dropdowns as value is directly used instead of code
+ - [MIFOSX-1582] - Users "Sign In" but "Log Out"—make sign/log in/out terminology consistent
+ - [MIFOSX-2055] - User not able to approve loan for a client with Loan approve permissions
+ - [MIFOSX-2044] - Demo System Log In Page Improvements
+
+15.03.1.RELEASE
+=============
+This minor release ships new functionality like the ability to create loans products whose interest compounding periods may be different from their rest periods and
+allowing extension of repayment schedule for daily loans when repayments fall on holidays along with a number of bug fixes and improvements to the Community app.
+
+Important note on API breaking changes for app developers:  As a part of the changes made for MIFOSX-2036, Group and center template API's no longer return details of "clientOptions" and "groupMemberOptions".
+You are requested to use /clients and /groups API's with the newly introduced query parameter "orphansOnly" for retrieving details of Clients and Groups which may be associated with particular Groups and Centers respectively.
+Sample usage of the same can be found on the "manage members" section on the Group profile screen and "Manage Groups" section of the Center profile screen
+
+Platform & API
+
+New Features & Improvements
+
+ - [MIFOSX-1951] - As a operations manager, I want to define loan products that allows interest compounding period to be different from rest period
+ - [MIFOSX-1983] - Allow extending repayment schedule for Daily loans when repayments fall on holidays
+ - [MIFOSX-2035] - Add new boolean parameter orphansOnly to retrieve all clients API
+ - [MIFOSX-2002] - allow search client by mobile_no
+
+Bugs 
+ - [MIFOSX-1831] - Journal entries for "Overpayment Liability" is not getting created for Periodic and Upfront accounting
+ - [MIFOSX-1955] - Cashier transaction beyond specified date should not be displayed for particular cashier in Teller cash management
+ - [MIFOSX-2004] - Not Able to modify Loan Application After Undo Disbursal And Undo Approval with Guarantor Attached
+ - [MIFOSX-1988] - Tranche loan Summary displays entire approved amount as disbursed amount even though the second and higher tranches are not yet disbursed.
+ - [MIFOSX-1995] - Prepay of loan with Grace on Interest is not working as expected
+ - [MIFOSX-1891] - Problem with scheduling day loan repayments
+ - [MIFOSX-1668] - Non-working day's repayment activity
+ - [MIFOSX-2007] - Unable to list Hooks defined in the system
+ - [MIFOSX-2032] - Teller Cash Management not handling multiple currencies accurately
+ - [MIFOSX-2037] - Payment type is not getting displayed in Individual collection sheet
+ - [MIFOSX-2043] - Password preferences API does not support Localization
+ - [MIFOSX-2046] - overpaid loans don't get transferred along when transferring of clients
+ - [MIFOSX-1956] - Accounting multi-currency opening balance
+ - [MIFOSX-2036] - Refactoring Groups and Centers API - removing clientOptions and groupMemberOptions for template true
+
+Community App
+ - [MIFOSX-1596] - If a stretchy report's query is modified and submitted, it does not save the modified query. It shows the previously defined query.
+ - [MIFOSX-1982] - Formatting issues with Stretchy reports
+ - [MIFOSX-1985] - Unable to create weekly meetings with recurrence of every 4 weeks
+ - [MIFOSX-1986] - Editing a meeting redirects to home page
+ - [MIFOSX-1991] - Client Transfer - should allow selecting any group in the particular office
+ - [MIFOSX-2008] - Enable Vietnamese (tiếng Việt) on the community App
+ - [MIFOSX-2028] - Dynamic Typeahead for Manage Members and Groups
+ - [MIFOSX-1979] - Introduce Better pagination for Groups and centers
+ - [MIFOSX-1980] - Display Account Id and External ID for groups on Group search screen
+ - [MIFOSX-1993] - Create GL Account - improve order of fields
+ - [MIFOSX-1286] - Expand the scope of the "Filter by name/account#/staff/office" filter to filter all data rather than just the data visible on a page.
+ - [MIFOSX-1996] - Issues with search in Client listing page
+ - [MIFOSX-1999] - Issues related to Working days functionality
+ - [MIFOSX-2000] - Not able to edit loan product when recalculate interest is enabled and Frequency of compounding != None
+ - [MIFOSX-2022] - Force password reset days is not working as expected
+ - [MIFOSX-2023] - Force password reset - issue 2
+ - [MIFOSX-2026] - Issues with editing system reports
+ - [MIFOSX-2029] - Small typo on passwordpreferences screen
+
+15.03.RELEASE
+=============
+
+This feature release ships new functionality like Collection sheets for Individual loans along with performance improvements around batch jobs and various enhancements to the community app.
+
+Enhamcements to the the loans module include the ability to round off installments, fix EMI's for non-tranche loans, improved flexility for pre-closure, ability to specify which loan product attributes may be overridden at an indivdual account level and greater flexibility around editing tranche definitions during loan approval and disbursal.
+
+Recurring deposits have been enhanced to support open-ended deposits (no maturity amount or period)
+
+Beta API's shipped in this release add the functionality for setting opening balances for GL accounts and Entity mapping (can be used to map products and charges to Offices or Roles)
+
+Note that this release moves "Payments types" from Code values to thier own tables, custom reports and queries might be affected as a result of the same
+
+
+Platform & API
+
+New Features & Improvements
+
+ - [MIFOSX-1742] - Collection Sheet facility for individual loans.
+ - [MIFOSX-1464] - Loan repayment - Rounding off
+ - [MIFOSX-1844] - Last installment amount should not exceed the specified EMI amount.
+ - [MIFOSX-1667] - As a system Administrator, I must be able to decide which attributes of a loan product may be overridden by the loan account
+ - [MIFOSX-1918] - Allow full installment interest to be collected at time of pre-closure of loan
+ - [MIFOSX-1868] - Ability to have user passwords never expire
+ - [MIFOSX-1823] - Add facility to print receipts for all transactions for Savings
+ - [MIFOSX-1875] - Enforce strict password policies in the system
+ - [MIFOSX-1824] - Ability to allow user to change Tranche amount during loan approval stage.
+ - [MIFOSX-1897] - As an accountant I want to be able to see all journals related to a specific loan or savings
+ - [MIFOSX-1850] - Recurring deposits without maturity date/amount
+ - [MIFOSX-916] - Ability for Client Loan repayments rounding off to the multiples of 10s or 100s
+ - [MIFOSX-1159] - Allow Opening Balances to be set for GL (General Ledger) Accounts
+ - [MIFOSX-1842] - Improvements to disbursal of tranche loans
+ - [MIFOSX-1480] - Create an API for associating and diassociating groups from centers
+ - [MIFOSX-1877] - Allow end-user to reconfigure working-days for the institution
+ - [MIFOSX-1947] - Add API to allow capturing Staff images
+ - [MIFOSX-1670] - Require modification/deleting of created Role
+ - [MIFOSX-1817] - Teller Cash Management - capture Currency for Settle and Allocate transactions
+ - [MIFOSX-1624] - Ability to writeoff loan on the same date of last transaction.
+ - [MIFOSX-1904] - Move Payment Types to their own table
+ - [MIFOSX-1846] - Feature to display and print Loan Transaction Receipt
+ - [MIFOSX-1786] - Allow usage of UGD (Templates) for Hooks
+ - [MIFOSX-1758] - Make the dist ZIP include the community-app in apps/ so that it works OOB
+ - [MIFOSX-1908] - Configurable retries on CannotAcquireLockException or ObjectOptimisticLockingFailureException
+ - [MIFOSX-1613] - The overdue status of a loan should appear only when the principal outstanding from the running schedule is greater than the principal outstanding from the original schedule when compared on current date.
+
+Bugs
+
+ - [MIFOSX-1116] - Wrong maturity amount is shown when closing recurring deposit account
+ - [MIFOSX-1481] - you cannot write off a loan after making a repayment
+ - [MIFOSX-1729] - Installment amount exceeds the specified emi amount if there are multiple disbursals before the first repayment date.
+ - [MIFOSX-1776] - Group loan application synk repayment with meeting is not working as expected
+ - [MIFOSX-1808] - After moving the group from one center to another "Center Summary" is not geting updated
+ - [MIFOSX-1809] - Closure reason created for Group is displaying in Closure reason for Centers while closing the Center.
+ - [MIFOSX-1830] - Print report icon is not visible in UI for savings transaction receipt and receipt is coming for reverse transaction
+ - [MIFOSX-1836] - Can't Transfer Clients between Groups
+ - [MIFOSX-1839] - Issue related to Show Payment Details in Loans and Savings account Transactions
+ - [MIFOSX-1847] - Data tables - can be deleted - even if data exists
+ - [MIFOSX-1859] - no error indication while doing duplicate entry of one client identifier's Unique ID in another client's identifier's ID
+ - [MIFOSX-1860] - Not able to disburse Second Tranche loan if First repayment date is defined.
+ - [MIFOSX-1864] - cannot remove all Mappping Fees,Penalties to Income Accounts
+ - [MIFOSX-1866] - Guarantor Release funds causes 500 error
+ - [MIFOSX-1878] - Savings account timeline does not include the data of the user that activated the account
+ - [MIFOSX-1884] - Unable to create a loan account with given loan product definition (tranche loan)
+ - [MIFOSX-1885] - Not able to disassociate a Client from attached Group even if he is not having any active JLG loans under that Group
+ - [MIFOSX-1892] - Issues related to Teller/Cashier Management
+ - [MIFOSX-1905] - Consistency w.r.t spelling "principalThresholdForLastInstalment" for loan products
+ - [MIFOSX-1914] - Not able to create loan product with "Principal Threshold (%) for Last Instalment" field added
+ - [MIFOSX-1915] - Repayment schedule is not getting generated as per loan term, rather displaying more term with principal due
+ - [MIFOSX-1926] - https://github.com/openMF/community-app/issues/1285
+ - [MIFOSX-1940] - Accounting running balance job hangs when updating 400,000 or more entries
+ - [MIFOSX-1942] - Edit Tranche option in community app takes you to the wrong page
+ - [MIFOSX-1943] - UI issue in Loan Tranche Details tab - Edit tranche icon is not displayed
+ - [MIFOSX-451] - Not able to close the loan earlier than its scheduled date.
+ - [MIFOSX-1759] - Manage Group under center and Manage member under Group pages are not working as expected
+ - [MIFOSX-1766] - Issues related to Assign and Unassign staff for Savings account
+ - [MIFOSX-1941] - Incorrect GL Account running balance figures
+ - [MIFOSX-1948] - Period accruals jobs does not handle Timezones correctly
+
+
+Community app
+
+ - [MIFOSX-1888] - Allow a UI configuration to specify which fields should be editable/read only/hidden on the loan account creation page
+ - [MIFOSX-1139] - Cleaner error message when Community app tries to connect to an Invalid Platform URL
+ - [MIFOSX-1825] - Add feature to bulk create loans (group wise)
+ - [MIFOSX-1232] - Inconsistent terminology in Loan Product creation regarding loan cycle / borrower cycle
+ - [MIFOSX-1293] - Add select all option to Pending Tasks in Checker Inbox and Tasks
+ - [MIFOSX-1312] - When viewing a group loan, the group name does not display
+ - [MIFOSX-1903] - Enable easier view of Journal entries created by loan transactions on the Community Application
+ - [MIFOSX-1555] - UI updates to Group screen and applying number formats across the community app
+ - [MIFOSX-1787] - Audit trails - Advanced search is not working as expected
+ - [MIFOSX-1685] - Improve browser-back navigation
+ - [MIFOSX-1690] - Huge dropdown list during account transfers
+ - [MIFOSX-1693] - Chart of Accounts - display improvements
+ - [MIFOSX-1605] - In Edit Recurring deposit product page not able "For Pre-mature Closure: on" field is not working
+ - [MIFOSX-1617] - Better pagination service
+ - [MIFOSX-1621] - Manage Members on group profile does not behave properly when adding first client to a group
+ - [MIFOSX-1754] - Typo in Create Loan Product >> Accounting >> Cash (should be losses written off)
+ - [MIFOSX-1583] - "Help" menu choice on mifos menu should be renamed or linked to the User Manual
+ - [MIFOSX-1590] - Moving icons on Accounting Menu page distracting
+ - [MIFOSX-1602] - Including Mifos X release details in Community-App as about info
+ - [MIFOSX-1793] - Typo's in index.html
+ - [MIFOSX-1833] - In the Add journal entry - Drop down accounts should be sorted with respect to gl code
+ - [MIFOSX-1920] - Hiding Of Deleted Guarantors
+ - [MIFOSX-1777] - Add tooltips for Fixed and Recurring Deposit product labels
+ - [MIFOSX-1778] - Add tooltips for Loan Product Field labels Pt. 1
+ - [MIFOSX-1779] - Add tooltips for Loan Product Field labels Pt. 2
+ - [MIFOSX-1780] - Add tooltips for Loan Product Field labels Pt. 3
+ - [MIFOSX-1781] - Add tooltips for New Loan Account labels
+ - [MIFOSX-1783] - Add tooltips for Savings Product labels
+ - [MIFOSX-1785] - Add tooltips and glossary entires for global configuration and savings accounting labels
+ - [MIFOSX-1849] - Parse Error in Console while viewing a Group
+ - [MIFOSX-1696] - UI Improvements to Manage Roles and Permissions
+ - [MIFOSX-1911] - Deposit Account On Hold Transactions
+ - [MIFOSX-1858] - Smoother sidebar transition on mouseout
+ - [MIFOSX-1872] - Drop down for Account Transfers is not working
+ - [MIFOSX-1640] - Provide select-all checkbox when managing permissions for role
+ - [MIFOSX-1912] - Chrome browser - Language issue(Date format)
+ - [MIFOSX-1544] - While creating a Group under center should not allowed to ask for office again
+ - [MIFOSX-1822] - Create Sub ledger account is not working as expected
+ - [MIFOSX-1900] - List Keyboard shortcuts
+ - [MIFOSX-1960] - Add ID and External ID in Center Listing page
+ - [MIFOSX-1256] - Filter charge and overdue charges drop-down lists to display only valid charges (matching currency)
+ - [MIFOSX-1899] - Payment Details for "Frequent Postings" are not stored in the database.
+ - [MIFOSX-1876] - Client attendance details submitted in collection sheet is not getting updated in database
+ - [MIFOSX-1954] - Start date and end date got interchanged while creating the teller
+ - [MIFOSX-1958] - Payment details is not getting displayed if any transaction detail is viewed from Search Journal entry screen
+
+
+1.26.0.RELEASE
+=============
+This feature release adds support for capturing guarantee requirements for loans and blocking/holding funds in guarantor accounts. It also includes various enhancements like the addition of new statuses for client life cycle, ability to map liability accounts to fees, ability to update deposit amounts for active recurring deposits and the ability to capture client images from a linked webcam along with a number of other improvements and bug fixes
+
+
+Platform & API
+
+New Features & Improvements
+
+ - [MIFOSX-1662] - Adding new statuses to Client lifecyle
+ - [MIFOSX-1663] - Add more flexibility for center/group meeting reschedule
+ - [MIFOSX-1584] - Option to set "minimum days between disbursal and first repayment"
+ - [MIFOSX-1641] - Configure Guarantor requirements for loan product
+ - [MIFOSX-1675] - Add support to capture guarantee details for loans
+ - [MIFOSX-1709] - Workflows for holding and releasing funds on savings account linked as guarantee to loan accounts
+ - [MIFOSX-1728] - Introduce tenure Min/Max constraints for Tranche loans
+ - [MIFOSX-1639] - Auto create standing instruction at loan disbursement
+ - [MIFOSX-1700] - Need ability to update deposit amounts for non interest bearing Recurring deposits
+ - [MIFOSX-1727] - Option to make Calendar Mandatory when disbursing JLG loan
+ - [MIFOSX-1068] - Option to change approved amount during loan approval
+ - [MIFOSX-1175] - Ability to transfer loan officer to a group
+ - [MIFOSX-1523] - Loan rescheduling
+ - [MIFOSX-1514] - Refund for Active Loans
+ - [MIFOSX-1463] - Keep track of manually reversed/adjusted loan repayments
+ - [MIFOSX-1511] - Custom Formats for Client number and account number
+ - [MIFOSX-1630] - Bit and DateTime data type support in DataTable API
+ - [MIFOSX-1619] - Add MifosX Eclipse preferences file into source control
+ - [MIFOSX-1642] - add sub status to client
+ - [MIFOSX-1628] - Log current user for loan and deposit transactions
+ - [MIFOSX-1634] - Add option to account fees as liabilities
+ - [MIFOSX-1638] - Waiving charges attached to zero balance installments - Loan Rescheduling
+ - [MIFOSX-1738] - Create dev and production profiles for Gradle build
+ - [MIFOSX-1566] - Constraint for minimum/maximum number of client in a active group
+ - [MIFOSX-1680] - Option to change center meeting frequency and intervals
+ - [MIFOSX-1674] - Allow the description field added to m_code_value to be edited/entered
+ - [MIFOSX-1739] - Loan Products with close date in the past should not appear in loan account creation dropdown
+
+Bugs
+
+ - [MIFOSX-1699] - Concurrent Savings transactions are not handled correctly
+ - [MIFOSX-1550] - No check for NULL principal amount when creating journal entry for loan write-off
+ - [MIFOSX-1625] - Can't disburse loan with charges configured for periodic accruals
+ - [MIFOSX-1633] - Newly added pentaho reports are missing read permissions 
+ - [MIFOSX-1655] - Updating a loan (with charges attached) after submitting throws an error
+ - [MIFOSX-1656] - Bulk JLG Loan application is not working as expected
+ - [MIFOSX-1661] - Some details provided in the Loan Product page is not displaying in the New loan application page
+ - [MIFOSX-1671] - User with "ALL_FUNCTIONS_READ" permission does not have access to /users/{userId} resource
+ - [MIFOSX-1676] - Issues with Interest posting on Fixed deposit Account
+ - [MIFOSX-1704] - makercheckers endpoint broken for non-superuser roles
+ - [MIFOSX-1747] - Issues with logging on the MifosX platform after Spring boot update
+ - [MIFOSX-1760] - For JLG Loans sync repayment with meeting is not working as expected after loan Approval
+
+
+Community App
+
+ - [MIFOSX-1645] - In UI should not allowed to send multiple requests by submitting request for multiple times for same action
+ - [MIFOSX-1564] - Ability to Capture Client Image from webcams on the Community App
+ - [MIFOSX-1745] - Community app does not allow deleting client images
+ - [MIFOSX-1684] - Default current date for activation dates and submission dates
+ - [MIFOSX-1687] - In search screens, retain the search criteria during browser navigation
+ - [MIFOSX-1692] - Tree view of Chart of Accounts and Offices to have "Expand All" option
+ - [MIFOSX-1591] - The +JLG Loan Application on the view group page has a different colored background color than other actions in the system.
+ - [MIFOSX-1443] - By Clicking on client having Image/Signature, authentication page displays
+ - [MIFOSX-1556] - AdHoc query Search always give error when 'summary' button is clicked
+ - [MIFOSX-1043] - Community app does not support datatables with bit, DateTime fields
+ - [MIFOSX-1559] - Issues related to Manage Groups in Centers and Manage Clients in Groups
+ - [MIFOSX-1239] - Allow tab out from calendar control (to improve data entry efficiency)
+ - [MIFOSX-1529] - Showing Today's Date in Datepicker
+ - [MIFOSX-1546] - Improve UI for Global Configuration
+ - [MIFOSX-1284] - Sort entries in selection lists alphabetically
+ - [MIFOSX-1713] - Ability to hide values in "Approved Amount" and "Disburse Amount" for the loans under submitted and pending approval state
+ - [MIFOSX-1533] - Advanced Search
+ - [MIFOSX-1551] - System -> Audit trails- search is not working as expected
+ - [MIFOSX-1644] - Loans transactions history does not hide transactions which have been undone
+ - [MIFOSX-1730] - Unable to create Tranche loans on the community app when using a Date format other than 'dd MMMM yyyy'
+ - [MIFOSX-1772] - By clicking on the meeting details in Group page (under Center and meeting assigned at center level) displays calendar does not exist error message
+ - [MIFOSX-1575] - Reversing a journal entry does not ask for confirmation.
+ - [MIFOSX-1677] - When moving clients between groups, display customer ids for easier identification
+ - [MIFOSX-1768] - Clean up Loan product creation screen
+
+
+1.25.1.RELEASE
+=============
+Bug Release
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1466] - Savings interest posting - Should be flexible
+ - [MIFOSX-1632] - Fine tuning of Accrual transactions with interest recalculation
+
+Bugs 
+ - [MIFOSX-1586] - Applying overdue charge for a loan with interest recalculation causes the application to create multiple schedules for the same loan account
+ - [MIFOSX-1589] - Support for Charge and interest waivers with Accrual accounting
+ - [MIFOSX-1595] - Periodic accrual is posting wrong interest when run multiple times in a repayment period
+ - [MIFOSX-1606] - Closing savings account throws null pointer exception
+ - [MIFOSX-1608] - Rounding issue in periodic accrual for loan accounts with Decimal Place as Zero.
+ - [MIFOSX-1612] - If a loan disbursal is undone, then the journal entries created for the accrued interest on that loan is not being reversed.
+ - [MIFOSX-1631] - Not able to disburse loan with installment fees attached
+
+Community App
+ - [MIFOSX-1626] - Pagination Issue in Audit Trails Search
+ - [MIFOSX-1604] - Community app always uploads signature to the "default" tenant, similar issues exists with loan documents
+
+1.25.0.RELEASE
+=============
+This feature release ships various enhancements like interest recalculation for loans with configurable rest definitions and compounding options, point in time accruals, improved pre-payment functionality, batching API calls  and support for Hooks along with a number of updates to the Community app and bug fixes.
+
+New Features & Improvements
+
+ - [MIFOSX-580] - Add support for 'pure' declining balance
+ - [MIFOSX-1442] - Support for Webhooks
+ - [MIFOSX-1188] - GSOC Project: Batch API
+ - [MIFOSX-1420] - Add pre-payment functionality
+ - [MIFOSX-1537] - Add display of original Schedule for interest recalculation
+ - [MIFOSX-1526] - Add future installments display for interest first repayment strategies
+ - [MIFOSX-1416] - Add batch jobs to run accruals with specific periodicity
+ - [MIFOSX-1417] - Add API to add accrual transactions till specified date
+ - [MIFOSX-1418] - Recalculate and adjust accruals for back dated entries
+ - [MIFOSX-1252] - Add API's for assigning and unassigning Staff for savings account (along with tracking assignment history similar to loans)
+ - [MIFOSX-1265] - Ability to capture "External ID" for Savings account
+ - [MIFOSX-1315] - Global search should search for saving account number and external id fields
+ - [MIFOSX-1395] - Add Loan/Savings Product Short Name in ClientAccounts Response
+ - [MIFOSX-1397] - Added Submitted date on loan transaction and saving transaction
+ - [MIFOSX-1400] - User should be able to modify client submission date
+ - [MIFOSX-1415] - Modify loan and Add Accrual Transactions batch job to capture last accrued date
+ - [MIFOSX-1468] - Add a "joining date" field for staff
+ - [MIFOSX-1522] - Add loan running balance to transactions
+ - [MIFOSX-1470] - Increase column length to 200 for COA name field
+ - [MIFOSX-1434] - Populate Submitted On date for Create Client with default date as current date
+
+
+Bugs
+
+ - [MIFOSX-1145] - Update data table throws "Data truncation: Invalid use of NULL value" SQL error
+ - [MIFOSX-1424] - Opening and closing of Overdraft account
+ - [MIFOSX-1184] - BeanCurrentlyInCreationException: Error creating bean with name 'schedulerStopListener': Requested bean is currently in creation: Is there an unresolvable circular reference?
+ - [MIFOSX-1291] - Overdue Fees
+ - [MIFOSX-1368] - In Loans excess repayment is not getting repaid properly if Repayment Strategy is RBI
+ - [MIFOSX-1410] - Should not allow to close Client with -ve account balance (Overdraft account)
+ - [MIFOSX-1411] - Withdraw of amount in RD account results in null point exception
+ - [MIFOSX-1426] - Issues related to Loan Collaterals
+ - [MIFOSX-1429] - Loans incorrectly classified as NPA
+ - [MIFOSX-1452] - Active Client Loan not correct when there is a group loan
+ - [MIFOSX-1453] - When transferring a client with a loan status as overpaid to another branch the loan status is changed to active instead of overpaid
+ - [MIFOSX-1467] - Periodic accrual accounting is not working properly if the gap between loan approved and disbursement date is more
+ - [MIFOSX-1483] - Not able to submit Recurring deposit account application if "Deposit Frequency" is defined as days
+ - [MIFOSX-1500] - Some fields for loan in the client page loan section not populate/displayed.
+ - [MIFOSX-1501] - Fixing Issues related to clean shutdown of Mifos Server: AbandonedCleanupThread and Quartz scheduler worker Threads.
+ - [MIFOSX-1513] - If more than one repayment is done on today's date (i.e sysdate) loan got closed with overpaid status
+ - [MIFOSX-1517] - For Tranche Loans interest is getting calculated with respect to the Approved amount than Disbursed amount
+ - [MIFOSX-1528] - Missing Documentation: For Assign and Unassign Loan Officer
+ - [MIFOSX-1531] - Not Appearing Loan Approval and Loan Disbursal in Checker Inbox & Tasks
+ - [MIFOSX-1539] - In Loan account "First repayment on" is not working as expected
+ - [MIFOSX-1547] - Interest is getting calculated for the non Disbursed amount in Tranche loan if one of the repayment date and 2nd Tranche disbursement date is today
+ - [MIFOSX-1549] - For JLG Loans repayments are not syncing with the meeting dates if disbursement date is other than meeting date
+ - [MIFOSX-1554] - Not able to withdraw amount from savings account having sufficient balance
+ - [MIFOSX-1557] - No Journal entries are created if accounts are being mapped in 'Advance Accounting Rule" (Issue found only in Accrual Accounting)
+ - [MIFOSX-1561] - In Tranche Loan should not allowed to repay second Tranche amount if only first Tranche is disbursed
+ - [MIFOSX-1563] - For Loans, generated schedule is incorrect after the first repayment
+
+
+Community App
+
+ - [MIFOSX-1020] - Improvements in User profile page
+ - [MIFOSX-1037] - Need thousands separator for amounts
+ - [MIFOSX-1425] - Bulk JLG Loan Applications
+ - [MIFOSX-1534] - Limited Date Formats
+ - [MIFOSX-1497] - Loan Category under Loan purpose
+ - [MIFOSX-1516] - High CPU Usage from "grunt serve"
+ - [MIFOSX-1437] - Center Screen Layout Changes
+ - [MIFOSX-1438] - Groups Screen Layout  Changes
+ - [MIFOSX-1374] - Improvements to Chart of Account UI
+ - [MIFOSX-1308] - The labels for collateral attributes are inconsistent on different pages.
+ - [MIFOSX-1031] - UI related Issues
+ - [MIFOSX-1290] - Correctly spell Installment Fee under Charge time type
+ - [MIFOSX-1432] - Minor layout fixes to Organization Admin screens
+ - [MIFOSX-1446] - In "Client savings transaction" page ( transaction page -> Export) different client name is displaying
+ - [MIFOSX-1465] - UI and Label related issues
+ - [MIFOSX-1430] - Activities search bar on home page doesn't populate with available activities or actually search
+ - [MIFOSX-1433] - Products Views layout changes.
+ - [MIFOSX-1455] - In Centers -> View Centers -> Create Group page members added is not displaying properly in Group General page
+ - [MIFOSX-1325] - Add ability to attach a group to a center
+ - [MIFOSX-1482] - Improve work-flow for adding Clients to a Group during its Creation
+ - [MIFOSX-1574] - Unable to search for GL Accounts by GL Codes in "Add Journal Entries"
+
+
+
+1.24.0.RELEASE
+=============
+This feature release ships improvements to savings accounts including support for weekly fees and minimum balance for interest calculation along with a number of bug fixes and minor enhancements
+
+Also note that issue https://mifosforge.jira.com/browse/MIFOSX-1364 introduces an API breaking change.
+
+Platform & API
+
+New Features & Improvements
+
+ - [MIFOSX-1392] - Add minimum balance support for interest calculation
+ - [MIFOSX-1161] - Add minimum balance to savings product and accounts
+ - [MIFOSX-1235] - Saving charges with weekly frequency
+ - [MIFOSX-1275] - Improve logging for Standing Instructions
+ - [MIFOSX-1398] - Add an option for balance withdrawal on closing of savings account
+ - [MIFOSX-1324] - Support for server side Image resizing
+
+Bugs
+
+ - [MIFOSX-1364] - Checker permissions should have _CHECKER appended to the Action name
+ - [MIFOSX-1157] - API Document updates related to recurring deposit extensions
+ - [MIFOSX-1200] - In Fixed deposit on premature closure withdrawal amount is calculating incorrectly
+ - [MIFOSX-1204] - Missing documentation related to optional parameter "multiRow" while Creating Data tables
+ - [MIFOSX-1272] - Percentage of Fee amount on Loan disbursement should calculated with respect to actual disbursed amount than approved amount
+ - [MIFOSX-1302] - Organization currencies can be deleted even when they are associated with active loan/savings products or charges
+ - [MIFOSX-1339] - Reinvest of Term deposits should not be allowed on premature closure
+ - [MIFOSX-1340] - In Recurring deposits for Mandatory savings, activation of account and deposits not getting scheduled with meeting dates
+ - [MIFOSX-1341] - Withdrawal is not possible in active recurring deposit if "Allow withdrawal" checkbox is selected while submitting the application
+ - [MIFOSX-1351] - Charge on activation attached to a saving product is not creating journal entry while creating a client with active savings account
+ - [MIFOSX-1353] - Monthly charges attached to an active savings account is not getting collected on due date
+ - [MIFOSX-1357] - Repayment reschedule to next meeting date is falling on Non working day in Loan repayment schedule
+ - [MIFOSX-1358] - If repayment reschedule date is defined as holiday, then also repayment falls on that date
+ - [MIFOSX-1359] - Code Duplication in multiple classes: Re-factor and cleanup as necessary
+ - [MIFOSX-1365] - Not able to disburse Loan with backdated (borrower loan counter included) for the client who already having active Loans ( borrower loan counter not included)
+ - [MIFOSX-1366] - Incentive value defined for Gender in Fixed and Recurring deposit product is displaying improper value on submitting account for a client
+ - [MIFOSX-1369] - Undo disbursal of Loan is not getting updated in "Amount Disbursed for Today" home page
+ - [MIFOSX-1394] - For overdraft account interest is not posting properly for the +ve balance after repayment of dues
+ - [MIFOSX-1399] - Creating new Guarantor for loan account crash if the loan already has existing guarantor
+ - [MIFOSX-1401] - Allow value 0 for inArrearsTolerance when editing loanAccount
+ - [MIFOSX-1349] - In Client savings account -> Chages page - Monthly charges is not updating properly
+ - [MIFOSX-1403] - Closing of Fixed deposit creates double journal entries
+
+Community App
+
+ - [MIFOSX-1142] - Ability to zoom-in client's photo in the community-app
+ - [MIFOSX-1158] - Allow upload of a client's signature & preview of the same
+ - [MIFOSX-1348] - Implementation of sorting options for transaction preview tables for Fixed deposits and Recurring deposit accounts
+ - [MIFOSX-1333] - Usability related issue in Frequent posting and Add journal entry pages
+ - [MIFOSX-1396] - Improper error message is displayed on trying to delete the used code values.
+ - [MIFOSX-1404] - Not able to add Group to the Center
+ - [MIFOSX-1367] - Merge Landing Page and Dashboard for the Community App
+ - [MIFOSX-1371] - Improvements to Add Journal Entries screens
+ - [MIFOSX-1373] - Improvements to Search Journal Entries screens
+ - [MIFOSX-1375] - Improvements to Accounting Closure screens
+ - [MIFOSX-1376] - Improvements to Accounting Rules screens
+ - [MIFOSX-1414] - Add change password button in user profile screen
+ - [MIFOSX-1413] - Populate date for collection sheet with default date as current date
+ - [MIFOSX-1362] - After Loan disbursement for a client in Transaction page displaying "Accrual" in transaction type for interest
+ - [MIFOSX-1388] - UI related issues due to bootstrap upgradation
+ - [MIFOSX-1390] - Term deposits - UI related issues
+ - [MIFOSX-1391] - Duplicate Client Creation Forms
+ - [MIFOSX-1218] - Make view of action to be verified more readable for checker
+
+1.23.1.RELEASE
+=============
+Bug Release
+
+Bugs
+ - [MIFOSX-1336] - Mifos X Generates Incorrect Repayment Schedules for Loans
+
+
+1.23.0.RELEASE
+=============
+This feature release contains works around adding support for opening fixed deposits from existing savings accounts, transferring interest from fixed deposits to savings Account, accounting improvements for account Transfers, ability to collect "recovery payments" for written off Loans, flexible interest rate charts with the ability to provide incentives based on customer attributes along with a number of bug fixes
+
+Platform & API
+
+New Features & Improvements
+
+ - [MIFOSX-1163] - Add support for opening fixed deposits from existing savings account
+ - [MIFOSX-1182] - Add support to transfer interest from fixed deposit to linked savings account
+ - [MIFOSX-695] - Clean up Account Transfers functionality implementation
+ - [MIFOSX-281] - Add ability to enter a 'recovery repayment' on written off loan
+ - [MIFOSX-1227] - Option to set staff as active/inactive
+ - [MIFOSX-1024] - Add support to decline maker checker
+ - [MIFOSX-709] - Ability of Not allow to Close Client with the Loan status "Overpaid"
+ - [MIFOSX-982] - Add ability to associate a staff to user
+ - [MIFOSX-1203] - Add batch job to update status from Active to Matured in Fixed deposits
+ - [MIFOSX-1313] - Add support to use incentives for interest rate chart
+
+Bugs
+
+ - [MIFOSX-1019] - transferring a client with a savings account not approved yet crashes
+ - [MIFOSX-1099] - Added validation that compound period falls within posting period
+ - [MIFOSX-1107] - Transaction balance end day calculated wrongly after interest posting in recurring deposit account
+ - [MIFOSX-1115] - Withdrawal posted twice when closing matured recurring deposit account
+ - [MIFOSX-1150] - Issue where null pointer exception was thrown after enabling cash based accounting for recurring deposit account
+ - [MIFOSX-1151] - Issue where expected first deposit date was not updated when recurring deposit account was edited
+ - [MIFOSX-1162] - Undo disbursal failing for loans which have overdue charges
+ - [MIFOSX-1187] - Not able to submit Fixed deposit application if the Maximum deposit term is not defined in Product level
+ - [MIFOSX-1183] - replaced fields in loans api transactions part (loanTransactionType.invalid)
+ - [MIFOSX-960] - Lefthand navigation menu shouldn't collapse automatically
+ - [MIFOSX-1300] - Should not allowed to transfer fund from Savings account to an active Fixed deposit account
+ - [MIFOSX-1200] - In Fixed deposit on premature closure withdrawal amount is calculating incorrectly
+ - [MIFOSX-1288] - For FD and RD transfer to savings account on premature closure is not working as expected
+ - [MIFOSX-1242] - For update fixed deposit product - "View Audit entry" page displays other improper details along with the output
+ - [MIFOSX-1243] - Not able to create Fixed deposit account for a client if Maker checker task is enabled.
+ - [MIFOSX-1244] - Details displayed in "Waiting For Checker Approval" page after creating Recurring Deposit is not proper
+ - [MIFOSX-1245] - Not able to create Recurring deposit account for a client if Maker checker task is enabled.
+ - [MIFOSX-1260] - Not able to create a client with the savings account attached
+ - [MIFOSX-1268] - In demo version Transactions created by activation of savings account while creating client is not proper
+ - [MIFOSX-1270] - In Savings account Journal entries are not mapping properly because of the charges attached on activation.
+ - [MIFOSX-1274] - Standing Instructions fail if the savings account had gone to negative balance during account creation
+ - [MIFOSX-1318] - Not able to Generate collection sheet for the defined meeting date
+ - [MIFOSX-1238] - Error while running Pentaho reports in MySQL 5.6+ with strict mode enabled
+ - [MIFOSX-1208] - Issue on Retrieving Datatable entries for Office.
+ - [MIFOSX-1215] - Not able to approve/delete maker checker tasks with checker user role
+ - [MIFOSX-1237] - Able to login with Deleted user
+ - [MIFOSX-1335] - Not able to close FD and RD accounts, displays "account is not active" error message
+
+Community App
+
+ - [MIFOSX-1233] - When assigning staff to Centers, Groups, Client, Loan, Savings a/c: Only loan officers who belong to the branch should be displayed in dropdown
+ - [MIFOSX-1154] - Usability issues while editing data tables
+ - [MIFOSX-1164] - Clean up login page transition
+ - [MIFOSX-1320] - Force logout on the community app on tab/window close
+ - [MIFOSX-1263] - Client/Loan Account info table takes up too much space
+ - [MIFOSX-1039] - Provide option for External ID to Loans
+ - [MIFOSX-1069] - Implementation of sorting options for transaction preview tables for savings or loans.
+ - [MIFOSX-1207] - Journal Entries - should have debits before credits
+ - [MIFOSX-1209] - In Loan repayment schedule page "Waive" column should be introduced
+ - [MIFOSX-1226] - UI improvements in Fixed deposits
+ - [MIFOSX-1254] - The UI for defining/managing charges, refers to loan products only. Charges may be set up for other products.
+ - [MIFOSX-1255] - Overdue charges do not appear in UI in loan product edit mode
+ - [MIFOSX-1256] - Filter charge and overdue charges drop-down lists to display only valid charges (matching currency)
+ - [MIFOSX-1257] - When creating charges, charges may be associated with either Loan or Saving, but Saving apply to Fixed and Recurring Deposits as well.
+ - [MIFOSX-1259] - Need space between icons and text
+ - [MIFOSX-1267] - Loan writeoff screen should display Writeoff amount
+ - [MIFOSX-1294] - Ability to hide " Add Fee Frequency " field for Loan charges except for Overdue fees
+ - [MIFOSX-1297] - In Saving product creation page settings is not working as expected
+ - [MIFOSX-1299] - Not able to add cash based accounting in Edit Fixed deposit product
+ - [MIFOSX-1196] - In fixed deposit product not able to "Edit Interest Rate Chart" displays improper error message
+ - [MIFOSX-1198] - Mobile Number field in Community App should be Text instead of Numeric field
+ - [MIFOSX-1282] - UI related issues in FD, RD, Loan and Savings products
+ - [MIFOSX-1276] - Not able to save Edit loan product page with Accounting "None"
+ - [MIFOSX-1279] - Deposit frequency is missed in Create and edit Recurring deposit product
+ - [MIFOSX-1280] - "Locking period frequency" is displaying improper values after submitting the Fixed deposit application and Recurring deposit application for a client
+ - [MIFOSX-1281] - In cash based accounting for loan products "Over payment liability" GL accounts are not displaying in dropdown
+ - [MIFOSX-1314] - Transfer of overpaid Loan amount to Savings account navigates to a page displays without entries
+ - [MIFOSX-1327] - Date format modified in settings is displaying "invalid date format" error while adding charge to savings account
+ - [MIFOSX-1328] - UI related issues
+ - [MIFOSX-1217] - Overdue charges added while creating the loan product is not displaying in Edit loan product page.
+ - [MIFOSX-1219] - Unable to make datatable entries for manually registered datatables
+ - [MIFOSX-1221] - External ID added while creating the center is not displaying in center general page
+ - [MIFOSX-1240] - Gender drop down menu does not display when editing client information
+ - [MIFOSX-1331] - For saving charges in Edit charge page Dropdown of "Charge calculation" is displaying Loan charge related inputs
+
+
+1.22.0.RELEASE
+=============
+This feature release contains work around Fixed deposits with interest slabs , recurring deposits, accrual accounting (upfront and periodic accrual) for loan products including the ability to categorize loans as Non Performing Assets, standing instructions, ability to disburse loans to linked savings accounts and upgrading the community app to Bootstrap 3.
+
+Important: Table `m_savings_account_transfer` has been dropped as a part of the work around Standing instructions. The database changes may be viewed at https://github.com/openMF/mifosx/blob/master/mifosng-db/migrations/core_db/V160__standing_instruction_changes.sql.
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1111] - Add Support for Term Deposits or Fixed Deposits or Time Deposits
+ - [MIFOSX-1112] - Add Support for Recurring Deposits
+ - [MIFOSX-1049] - Ship sample Data with every stable release
+ - [MIFOSX-1065] - In saving product, need quarterly, biannually, yearly option for interest compounding.
+ - [MIFOSX-1081] - Ability to Categorize Loans as Non Performing Assets (NPA)
+ - [MIFOSX-865] - Accrual Accounting support for Loan Products
+ - [MIFOSX-1055] - Add Standing Instructions for account to account transfer
+ - [MIFOSX-1146] - add support for disbursing loan amount to savings account
+ - [MIFOSX-1094] - Passing Tenant Database host, port and credentials to Pentaho reports
+ - [MIFOSX-1008] - No Interest posting on saving account when Interest is set @ 0%
+ - [MIFOSX-1075] - Add overdue penalty batch job in DB and handle exceptions in batch job
+ - [MIFOSX-1035] - JUnit Integration Test Cases for Charges
+ - [MIFOSX-1046] - JUnit test cases for code and code values API's
+ - [MIFOSX-1047] - JUnit test cases for Scheduler Jobs API's
+
+
+Bugs
+ - [MIFOSX-886] - In Modify Loan application adding charge on specified due date/Overdue fees results in Unknown data integrity issue
+ - [MIFOSX-998] - Should not be allowed to activate Group/Center and associate clients under group with out permissions.
+ - [MIFOSX-1021] - Not able to view particular charge details attached for savings account
+ - [MIFOSX-1027] - Potential issues with maker-Checker functionality
+ - [MIFOSX-1036] - Not able to generate Pentaho report added for client's Loan and saving transactions page
+ - [MIFOSX-1056] - Improper error message is displayed after clicking on "Repayment info" button while submitting the tranche loan application for a client with insufficient input
+ - [MIFOSX-1076] - In Modify Loan application if the Loan amount is modified, the % Charge on disbusement is not modifying accordingly.
+ - [MIFOSX-1077] - In Client loan page after submitting the Loan application if the %amount charge is edited then it is not getting calculated properly
+ - [MIFOSX-1053] - Not able to pay overdue savings charges through Schedular Job.
+
+
+Community App
+ - [MIFOSX-962] - Upgrade to Twitter Bootstrap 3
+ - [MIFOSX-1048] - Gmail Like Loading Progress Bar during application load
+ - [MIFOSX-965] - Community app should "respond" to fill entire screen
+ - [MIFOSX-1064] - Remove Gray "frame" around page data so as to match with the background.
+ - [MIFOSX-1072] - Ability to view error log details of individual run in View history page of a particular Schedular Job page
+ - [MIFOSX-1057] - New Collection Sheet UI changes
+ - [MIFOSX-1022] - Improvements In savings account for a client
+ - [MIFOSX-1058] - Not able to create holiday because of issue with the checkbox while selecting the office
+ - [MIFOSX-1073] - Issue with respect to View a particular Charge details in Loan and savings accounts
+ - [MIFOSX-1042] - UI related issues with respect to Datatables
+ - [MIFOSX-1041] - Issue related to Collection sheets
+ - [MIFOSX-1090] - Added overdue penalties is not displaying in loan repayment schedule
+ - [MIFOSX-1095] - Not able to assign Moratorium for Interest in new loan application page for a client
+ - [MIFOSX-1144] - Not able make/edit/read datatable entries even though user have proper permissions
+
+
+
+1.21.0.RELEASE
+=============
+This Feature release adds support for Automated Penalties for loans and externalizes the MySQL connection properties for a tenant along with other major fixes and improvements
+
+Important: Those updating from an existing installation to 1.21.* release or higher should run the update https://github.com/openMF/mifosx/blob/develop/mifosng-db/migrations/list_db/V2__externalize-connection-properties.sql on `mifosplatform-tenants` schema
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-1025] - Implement Overdue Penalties with recurrence and percentage based approach
+ - [MIFOSX-949] - Externalizing the PoolConfiguration of data source per tenant
+ - [MIFOSX-994] - Allow all savings account's(remove constrain for overdraft) as client default account
+ - [MIFOSX-1015] - Need to Add Pentaho report which generates data for client saving transactions transaction and loan repayment schedule
+ - [MIFOSX-1010] - stretchy report converted into Pentaho reports
+ - [MIFOSX-986] - transferring of clients in same group but different loan officer
+ - [MIFOSX-1013] - Add loanId and clientId in makercheckers api return
+ - [MIFOSX-942] - Moving savings products and savings accounts api documentation out of beta
+ - [MIFOSX-993] - JUnit Integration Test Cases for Group Savings
+ - [MIFOSX-1003] - JUnit Integration Test Cases for Accounting with Savings
+ - [MIFOSX-1012] - JUnit Test Cases for Fund Transfer in Savings
+ - [MIFOSX-1026] - JUnit Integration Test Cases for Global Configurations
+ - [MIFOSX-941] - Api Documentation for modify loan application is missing
+
+
+Bugs
+ - [MIFOSX-835] - For a Client (member of 2 Groups) taken JLG loan from 1 group, repayment amount is displaying in collection sheet of other Group
+ - [MIFOSX-880] - In new JLG Loan application interest on first repayment is not getting calculated as per Disbursement date
+ - [MIFOSX-909] - For the Loan under pending approval stage - modifications in the charges is not getting updated in "outstanding" column
+ - [MIFOSX-996] - Not able to modify Loan application through API
+ - [MIFOSX-1014] - approving maker checker for repayment and adjustments for work throws a 500 error
+ 
+Community App
+ - [MIFOSX-1002] - Issues with Angular JS and Require JS load on the community app
+ - [MIFOSX-957] - Dashboard reports wont work when connected to MIfos X backend other than https://demo.openmf.org
+ - [MIFOSX-1018] - User with all permission not able to change password of his own
+ - [MIFOSX-956] - Ability to print Repayment Schedule in active loan
+ - [MIFOSX-1005] - Improvement with respect to Accounting pages
+ - [MIFOSX-1016] - Cleaning XBRL reports ui(inline styles)
+ - [MIFOSX-990] - Navigation page is not working as expected
+ - [MIFOSX-999] - Issues with User Generated Documents
+ - [MIFOSX-953] - Associating checkbox to jobs are not working as expected.
+ - [MIFOSX-972] - Log in screen freezing problem
+
+
+1.20.1.RELEASE
+=============
+Bug Release
+
+Bugs
+ - [MIFOSX-995] - Grace periods not working when actualDisbursementDate != expectedDisbursementDate
+
+1.20.0.RELEASE
+=============
+Feature Release
+
+Platform & API
+
+New Features & Improvements
+ - [MIFOSX-216] - No. of days overdue before In Arrears Not in Mifos X
+ - [MIFOSX-992] - Password Expiry and Idle user Logout
+ - [MIFOSX-974] - Integration test cases for Savings functionality
+
+Bugs
+ - [MIFOSX-814] - Not able to create user with the current API parameters
+ - [MIFOSX-877] - Retrieve Loan by external ID results in 500 error in API
+ - [MIFOSX-879] - Sorting and Ordering not working on Loan as per API Documentation
+ - [MIFOSX-930] - In modify loan application (Undo disbursal - Undo approval) not able to delete the charges added before.
+ - [MIFOSX-945] - Not able to adjust the minimum opening balance amount in transactions page of savings account results in "Null point exception"
+ - [MIFOSX-955] - Error in Aging Detail stretchy report
+ - [MIFOSX-948] - No links to User Generated Documents in the api docs (called templates)
+
+
+Community App
+ - [MIFOSX-979] - show hide elements on user interface based on user permissions
+ - [MIFOSX-975] - Clearly represent Loans In Arrears in the Community app
+ - [MIFOSX-976] - Support editing values for global configurations
+ - [MIFOSX-985] - Implementing user permissions for scheduler job
+ - [MIFOSX-989] - Make easy to select particular entity in a table
+ - [MIFOSX-947] - Issue with checkboxes because of upgradation in Angular JS
+ - [MIFOSX-973] - Templates functionality is broken after Angular upgrade
+ - [MIFOSX-977] - Not able to view data in stretchy reports if duplicate values present in JSON array
+ - [MIFOSX-980] - issue with first repayment on the same day of disbursement
+ - [MIFOSX-981] - Not able to enter data into data tables for code values
+ - [MIFOSX-983] - Stretchy reports export csv including old results
+ - [MIFOSX-987] - Not able to add member under Group with the backdated.
+ - [MIFOSX-991] - Submit button is not working in currency configuration page
+ - [MIFOSX-907] - In Edit Datatable page "new name" is not working as expected
+ - [MIFOSX-909] - For the Loan under pending approval stage - modifications in the charges is not getting updated in "outstanding" column
+ - [MIFOSX-915] - Not able to submit the JLG loan application if "Interest charged from" field is attached
+ - [MIFOSX-919] - Charge on specified due date, added while submitting the loan application is not reflecting in preview repayments page
+ - [MIFOSX-952] - Not able to assign Moratorium for Interest in new loan application page for a client
 
 1.19.0.RELEASE
 =============

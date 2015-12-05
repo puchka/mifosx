@@ -42,6 +42,24 @@ public final class LoanScheduleModel {
                 totalOutstanding);
     }
 
+    public static LoanScheduleModel withOverdueChargeUpdation(final Collection<LoanScheduleModelPeriod> periods,
+            final LoanScheduleModel loanScheduleModel, final BigDecimal totalPenaltyChargesCharged) {
+
+        return new LoanScheduleModel(periods, loanScheduleModel.applicationCurrency, loanScheduleModel.loanTermInDays,
+                loanScheduleModel.totalPrincipalDisbursed, loanScheduleModel.totalPrincipalExpected, loanScheduleModel.totalPrincipalPaid,
+                loanScheduleModel.totalInterestCharged, loanScheduleModel.totalFeeChargesCharged, totalPenaltyChargesCharged,
+                loanScheduleModel.totalRepaymentExpected, loanScheduleModel.totalOutstanding);
+    }
+
+    public static LoanScheduleModel withLoanScheduleModelPeriods(final Collection<LoanScheduleModelPeriod> periods,
+            final LoanScheduleModel loanScheduleModel) {
+
+        return new LoanScheduleModel(periods, loanScheduleModel.applicationCurrency, loanScheduleModel.loanTermInDays,
+                loanScheduleModel.totalPrincipalDisbursed, loanScheduleModel.totalPrincipalExpected, loanScheduleModel.totalPrincipalPaid,
+                loanScheduleModel.totalInterestCharged, loanScheduleModel.totalFeeChargesCharged,
+                loanScheduleModel.totalPenaltyChargesCharged, loanScheduleModel.totalRepaymentExpected, loanScheduleModel.totalOutstanding);
+    }
+
     private LoanScheduleModel(final Collection<LoanScheduleModelPeriod> periods, final ApplicationCurrency applicationCurrency,
             final int loanTermInDays, final Money principalDisbursed, final BigDecimal totalPrincipalExpected,
             final BigDecimal totalPrincipalPaid, final BigDecimal totalInterestCharged, final BigDecimal totalFeeChargesCharged,
@@ -65,7 +83,7 @@ public final class LoanScheduleModel {
         final Integer inMultiplesOf = this.totalPrincipalDisbursed.getCurrencyInMultiplesOf();
         final CurrencyData currency = this.applicationCurrency.toData(decimalPlaces, inMultiplesOf);
 
-        final Collection<LoanSchedulePeriodData> periodsData = new ArrayList<LoanSchedulePeriodData>();
+        final Collection<LoanSchedulePeriodData> periodsData = new ArrayList<>();
         for (final LoanScheduleModelPeriod modelPeriod : this.periods) {
             periodsData.add(modelPeriod.toData());
         }
@@ -84,5 +102,9 @@ public final class LoanScheduleModel {
 
     public Collection<LoanScheduleModelPeriod> getPeriods() {
         return this.periods;
+    }
+
+    public BigDecimal getTotalPenaltyChargesCharged() {
+        return this.totalPenaltyChargesCharged;
     }
 }

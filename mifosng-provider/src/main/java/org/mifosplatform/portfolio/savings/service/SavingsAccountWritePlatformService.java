@@ -5,11 +5,15 @@
  */
 package org.mifosplatform.portfolio.savings.service;
 
+import java.util.Set;
+
 import org.joda.time.LocalDate;
+import org.joda.time.format.DateTimeFormatter;
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
 import org.mifosplatform.organisation.office.domain.Office;
 import org.mifosplatform.organisation.staff.domain.Staff;
+import org.mifosplatform.portfolio.savings.domain.SavingsAccount;
 import org.mifosplatform.portfolio.savings.domain.SavingsAccountTransaction;
 
 public interface SavingsAccountWritePlatformService {
@@ -27,8 +31,6 @@ public interface SavingsAccountWritePlatformService {
     CommandProcessingResult postInterest(Long savingsId);
 
     CommandProcessingResult undoTransaction(Long savingsId, Long transactionId, boolean allowAccountTransferModification);
-
-    void postInterestForAccounts();
 
     CommandProcessingResult adjustSavingsTransaction(Long savingsId, Long transactionId, JsonCommand command);
 
@@ -52,5 +54,16 @@ public interface SavingsAccountWritePlatformService {
 
     CommandProcessingResult payCharge(Long savingsAccountId, Long savingsAccountChargeId, JsonCommand command);
 
+    CommandProcessingResult inactivateCharge(Long savingsAccountId, Long savingsAccountChargeId);
+
+    CommandProcessingResult assignFieldOfficer(Long savingsAccountId, JsonCommand command);
+
+    CommandProcessingResult unassignFieldOfficer(Long savingsAccountId, JsonCommand command);
+
     void applyChargeDue(final Long savingsAccountChargeId, final Long accountId);
+
+    void processPostActiveActions(SavingsAccount account, DateTimeFormatter fmt, Set<Long> existingTransactionIds,
+            Set<Long> existingReversedTransactionIds);
+
+    void postInterest(SavingsAccount account);
 }

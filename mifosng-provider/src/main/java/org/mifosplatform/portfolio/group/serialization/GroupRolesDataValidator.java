@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.group.serialization;
 
 import java.lang.reflect.Type;
@@ -43,7 +48,7 @@ public class GroupRolesDataValidator {
         this.fromApiJsonHelper
                 .checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_ROLES_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_ROLE_RESOURCE_NAME);
@@ -68,7 +73,7 @@ public class GroupRolesDataValidator {
         this.fromApiJsonHelper
                 .checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_ROLES_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_ROLE_RESOURCE_NAME);

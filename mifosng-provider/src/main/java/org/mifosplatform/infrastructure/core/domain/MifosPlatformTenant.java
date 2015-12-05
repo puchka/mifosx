@@ -10,33 +10,16 @@ public class MifosPlatformTenant {
     private final Long id;
     private final String tenantIdentifier;
     private final String name;
-    private final String schemaName;
-    private final String schemaServer;
-    private final String schemaServerPort;
-    private final String schemaUsername;
-    private final String schemaPassword;
     private final String timezoneId;
-    private final boolean autoUpdateEnabled;
+    private final MifosPlatformTenantConnection connection;
 
-    public MifosPlatformTenant(final Long id, final String tenantIdentifier, final String name, final String schemaName,
-            final String schemaServer, final String schemaServerPort, final String schemaUsername, final String schemaPassword,
-            final String timezoneId, final boolean autoUpdateEnabled) {
+    public MifosPlatformTenant(final Long id, final String tenantIdentifier, final String name,
+            final String timezoneId, final MifosPlatformTenantConnection connection) {
         this.id = id;
         this.tenantIdentifier = tenantIdentifier;
         this.name = name;
-        this.schemaName = schemaName;
-        this.schemaServer = schemaServer;
-        this.schemaServerPort = schemaServerPort;
-        this.schemaUsername = schemaUsername;
-        this.schemaPassword = schemaPassword;
         this.timezoneId = timezoneId;
-        this.autoUpdateEnabled = autoUpdateEnabled;
-    }
-
-    public String databaseURL() {
-        final String url = new StringBuilder("jdbc:mysql://").append(this.schemaServer).append(':').append(this.schemaServerPort)
-                .append('/').append(this.schemaName).toString();
-        return url;
+        this.connection = connection;
     }
 
     public Long getId() {
@@ -51,24 +34,12 @@ public class MifosPlatformTenant {
         return this.name;
     }
 
-    public String getSchemaName() {
-        return this.schemaName;
-    }
-
-    public String getSchemaUsername() {
-        return this.schemaUsername;
-    }
-
-    public String getSchemaPassword() {
-        return this.schemaPassword;
-    }
-
     public String getTimezoneId() {
         return this.timezoneId;
     }
 
-    public boolean isAutoUpdateEnabled() {
-        return this.autoUpdateEnabled;
+    public MifosPlatformTenantConnection getConnection() {
+        return connection;
     }
 
 }

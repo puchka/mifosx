@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.mix.service;
 
 import java.math.BigDecimal;
@@ -57,11 +62,11 @@ public class XBRLResultServiceImpl implements XBRLResultService {
         final String config = taxonomyMapping.getConfig();
         if (config != null) {
             // <taxonomyId, mapping>
-            HashMap<String, String> configMap = new HashMap<String, String>();
+            HashMap<String, String> configMap = new HashMap<>();
             configMap = new Gson().fromJson(config, configMap.getClass());
             if (configMap == null) { return null; }
             // <taxonomyId, value>
-            final HashMap<MixTaxonomyData, BigDecimal> resultMap = new HashMap<MixTaxonomyData, BigDecimal>();
+            final HashMap<MixTaxonomyData, BigDecimal> resultMap = new HashMap<>();
             setupBalanceMap(getAccountSql(startDate, endDate));
             for (final Entry<String, String> entry : configMap.entrySet()) {
                 final BigDecimal value = processMappingString(entry.getValue());
@@ -136,7 +141,7 @@ public class XBRLResultServiceImpl implements XBRLResultService {
 
     private void setupBalanceMap(final String sql) {
         if (this.accountBalanceMap == null) {
-            this.accountBalanceMap = new HashMap<String, BigDecimal>();
+            this.accountBalanceMap = new HashMap<>();
             final SqlRowSet rs = this.jdbcTemplate.queryForRowSet(sql);
             while (rs.next()) {
                 this.accountBalanceMap.put(rs.getString("glcode"), rs.getBigDecimal("balance"));
@@ -170,7 +175,7 @@ public class XBRLResultServiceImpl implements XBRLResultService {
 
     public ArrayList<String> getGLCodes(final String template) {
 
-        final ArrayList<String> placeholders = new ArrayList<String>();
+        final ArrayList<String> placeholders = new ArrayList<>();
 
         if (template != null) {
 

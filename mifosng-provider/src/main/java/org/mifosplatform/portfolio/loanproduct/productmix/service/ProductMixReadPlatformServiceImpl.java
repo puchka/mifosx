@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.loanproduct.productmix.service;
 
 import java.sql.ResultSet;
@@ -83,7 +88,7 @@ public class ProductMixReadPlatformServiceImpl implements ProductMixReadPlatform
 
         @Override
         public Map<Long, ProductMixData> extractData(final ResultSet rs) throws SQLException, DataAccessException {
-            final Map<Long, ProductMixData> extractedData = new HashMap<Long, ProductMixData>();
+            final Map<Long, ProductMixData> extractedData = new HashMap<>();
 
             if (!rs.next()) {
                 final Collection<LoanProductData> restrictedProducts = this.loanProductReadPlatformService

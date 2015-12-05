@@ -1,14 +1,17 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.organisation.holiday.service;
 
 import static org.mifosplatform.organisation.holiday.api.HolidayApiConstants.officesParamName;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.joda.time.LocalDate;
-import org.mifosplatform.infrastructure.configuration.domain.ConfigurationDomainService;
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResultBuilder;
@@ -44,7 +47,6 @@ public class HolidayWritePlatformServiceJpaRepositoryImpl implements HolidayWrit
     private final HolidayDataValidator fromApiJsonDeserializer;
     private final HolidayRepositoryWrapper holidayRepository;
     private final WorkingDaysRepositoryWrapper daysRepositoryWrapper;
-    private final ConfigurationDomainService configurationDomainService;
     private final PlatformSecurityContext context;
     private final OfficeRepository officeRepository;
     private final FromJsonHelper fromApiJsonHelper;
@@ -53,14 +55,13 @@ public class HolidayWritePlatformServiceJpaRepositoryImpl implements HolidayWrit
     public HolidayWritePlatformServiceJpaRepositoryImpl(final HolidayDataValidator fromApiJsonDeserializer,
             final HolidayRepositoryWrapper holidayRepository, final PlatformSecurityContext context,
             final OfficeRepository officeRepository, final FromJsonHelper fromApiJsonHelper,
-            final WorkingDaysRepositoryWrapper daysRepositoryWrapper, final ConfigurationDomainService configurationDomainService) {
+            final WorkingDaysRepositoryWrapper daysRepositoryWrapper) {
         this.fromApiJsonDeserializer = fromApiJsonDeserializer;
         this.holidayRepository = holidayRepository;
         this.context = context;
         this.officeRepository = officeRepository;
         this.fromApiJsonHelper = fromApiJsonHelper;
         this.daysRepositoryWrapper = daysRepositoryWrapper;
-        this.configurationDomainService = configurationDomainService;
     }
 
     @Transactional
@@ -144,7 +145,7 @@ public class HolidayWritePlatformServiceJpaRepositoryImpl implements HolidayWrit
                 && topLevelJsonElement.get(HolidayApiConstants.officesParamName).isJsonArray()) {
 
             final JsonArray array = topLevelJsonElement.get(HolidayApiConstants.officesParamName).getAsJsonArray();
-            offices = new HashSet<Office>(array.size());
+            offices = new HashSet<>(array.size());
             for (int i = 0; i < array.size(); i++) {
                 final JsonObject officeElement = array.get(i).getAsJsonObject();
                 final Long officeId = this.fromApiJsonHelper.extractLongNamed(HolidayApiConstants.officeIdParamName, officeElement);
@@ -183,7 +184,8 @@ public class HolidayWritePlatformServiceJpaRepositoryImpl implements HolidayWrit
 
         if (toDate.isBefore(fromDate)) {
             defaultUserMessage = "To Date date cannot be before the From Date.";
-            throw new HolidayDateException("to.date.cannot.be.before.from.date", defaultUserMessage, fromDate.toString(), toDate.toString());
+            throw new HolidayDateException("to.date.cannot.be.before.from.date", defaultUserMessage, fromDate.toString(),
+                    toDate.toString());
         }
 
         if (repaymentsRescheduledTo.isEqual(fromDate) || repaymentsRescheduledTo.isEqual(toDate)
@@ -216,17 +218,6 @@ public class HolidayWritePlatformServiceJpaRepositoryImpl implements HolidayWrit
             throw new HolidayDateException("repayments.rescheduled.to.must.be.within.range", defaultUserMessage, fromDate.toString(),
                     toDate.toString(), repaymentsRescheduledTo.toString());
         }
-    }
-
-    @Override
-    public boolean isHoliday(Long officeId, LocalDate transactionDate) {
-        final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(officeId, transactionDate.toDate());
-        return HolidayUtil.isHoliday(transactionDate, holidays);
-    }
-
-    @Override
-    public boolean isTransactionAllowedOnHoliday() {
-        return this.configurationDomainService.allowTransactionsOnHolidayEnabled();
     }
 
 }

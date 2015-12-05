@@ -34,6 +34,7 @@ import org.mifosplatform.infrastructure.core.serialization.ApiRequestJsonSeriali
 import org.mifosplatform.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
 import org.mifosplatform.portfolio.charge.data.ChargeData;
+import org.mifosplatform.portfolio.charge.domain.ChargeTimeType;
 import org.mifosplatform.portfolio.charge.service.ChargeReadPlatformService;
 import org.mifosplatform.portfolio.loanaccount.data.LoanChargeData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanInstallmentChargeData;
@@ -47,10 +48,10 @@ import org.springframework.stereotype.Component;
 @Scope("singleton")
 public class LoanChargesApiResource {
 
-    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("id", "chargeId", "name", "penalty",
-            "chargeTimeType", "dueAsOfDate", "chargeCalculationType", "percentage", "amountPercentageAppliedTo", "currency",
-            "amountWaived", "amountWrittenOff", "amountOutstanding", "amountOrPercentage", "amount", "amountPaid", "chargeOptions",
-            "installmentChargeData"));
+    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(
+            Arrays.asList("id", "chargeId", "name", "penalty", "chargeTimeType", "dueAsOfDate", "chargeCalculationType", "percentage",
+                    "amountPercentageAppliedTo", "currency", "amountWaived", "amountWrittenOff", "amountOutstanding", "amountOrPercentage",
+                    "amount", "amountPaid", "chargeOptions", "installmentChargeData"));
 
     private final String resourceNameForPermissions = "LOAN";
 
@@ -96,12 +97,12 @@ public class LoanChargesApiResource {
     @Path("template")
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    public String retrieveTemplate(@Context final UriInfo uriInfo) {
+    public String retrieveTemplate(@PathParam("loanId") final Long loanId, @Context final UriInfo uriInfo) {
 
         this.context.authenticatedUser().validateHasReadPermission(this.resourceNameForPermissions);
 
-        final boolean feeChargesOnly = false;
-        final Collection<ChargeData> chargeOptions = this.chargeReadPlatformService.retrieveLoanApplicableCharges(feeChargesOnly);
+        final Collection<ChargeData> chargeOptions = this.chargeReadPlatformService.retrieveLoanAccountApplicableCharges(loanId,
+                new ChargeTimeType[] { ChargeTimeType.OVERDUE_INSTALLMENT });
         final LoanChargeData loanChargeTemplate = LoanChargeData.template(chargeOptions);
 
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());

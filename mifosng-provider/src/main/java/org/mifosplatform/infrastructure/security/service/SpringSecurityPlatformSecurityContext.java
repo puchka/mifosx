@@ -32,6 +32,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class SpringSecurityPlatformSecurityContext implements PlatformSecurityContext {
 
+    // private final static Logger logger =
+    // LoggerFactory.getLogger(SpringSecurityPlatformSecurityContext.class);
+
     private final ConfigurationDomainService configurationDomainService;
 
     public static final List<CommandWrapper> EXEMPT_FROM_PASSWORD_RESET_CHECK = new ArrayList<CommandWrapper>() {
@@ -59,6 +62,25 @@ public class SpringSecurityPlatformSecurityContext implements PlatformSecurityCo
         }
 
         if (currentUser == null) { throw new UnAuthenticatedUserException(); }
+
+        if (this.doesPasswordHasToBeRenewed(currentUser)) { throw new ResetPasswordException(currentUser.getId()); }
+
+        return currentUser;
+    }
+
+    @Override
+    public AppUser getAuthenticatedUserIfPresent() {
+
+        AppUser currentUser = null;
+        final SecurityContext context = SecurityContextHolder.getContext();
+        if (context != null) {
+            final Authentication auth = context.getAuthentication();
+            if (auth != null) {
+                currentUser = (AppUser) auth.getPrincipal();
+            }
+        }
+
+        if (currentUser == null) { return null; }
 
         if (this.doesPasswordHasToBeRenewed(currentUser)) { throw new ResetPasswordException(currentUser.getId()); }
 
@@ -105,7 +127,7 @@ public class SpringSecurityPlatformSecurityContext implements PlatformSecurityCo
     @Override
     public boolean doesPasswordHasToBeRenewed(AppUser currentUser) {
 
-        if (this.configurationDomainService.isPasswordForcedResetEnable()) {
+        if (this.configurationDomainService.isPasswordForcedResetEnable() && !currentUser.getPasswordNeverExpires()) {
 
             Long passwordDurationDays = this.configurationDomainService.retrievePasswordLiveTime();
             final Date passWordLastUpdateDate = currentUser.getLastTimePasswordUpdated();

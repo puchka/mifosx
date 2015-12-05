@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
 import static org.mifosplatform.portfolio.charge.service.ChargeEnumerations.*;
 
 @Service
@@ -27,12 +28,13 @@ public class ChargeDropdownReadPlatformServiceImpl implements ChargeDropdownRead
         return Arrays.asList(chargeCalculationType(ChargeCalculationType.FLAT),
                 chargeCalculationType(ChargeCalculationType.PERCENT_OF_AMOUNT),
                 chargeCalculationType(ChargeCalculationType.PERCENT_OF_AMOUNT_AND_INTEREST),
-                chargeCalculationType(ChargeCalculationType.PERCENT_OF_INTEREST));
+                chargeCalculationType(ChargeCalculationType.PERCENT_OF_INTEREST),
+                chargeCalculationType(ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT));
     }
 
     @Override
     public List<EnumOptionData> retrieveApplicableToTypes() {
-        final List<EnumOptionData> chargeAppliesToTypes = new ArrayList<EnumOptionData>();
+        final List<EnumOptionData> chargeAppliesToTypes = new ArrayList<>();
         for (final ChargeAppliesTo chargeAppliesTo : ChargeAppliesTo.values()) {
             if (ChargeAppliesTo.INVALID.equals(chargeAppliesTo)) {
                 continue;
@@ -44,7 +46,7 @@ public class ChargeDropdownReadPlatformServiceImpl implements ChargeDropdownRead
 
     @Override
     public List<EnumOptionData> retrieveCollectionTimeTypes() {
-        final List<EnumOptionData> chargeTimeTypes = new ArrayList<EnumOptionData>();
+        final List<EnumOptionData> chargeTimeTypes = new ArrayList<>();
         for (final ChargeTimeType chargeTimeType : ChargeTimeType.values()) {
             if (ChargeTimeType.INVALID.equals(chargeTimeType) || ChargeTimeType.SAVINGS_CLOSURE.equals(chargeTimeType)) {
                 continue;
@@ -64,13 +66,15 @@ public class ChargeDropdownReadPlatformServiceImpl implements ChargeDropdownRead
         return Arrays.asList(chargeCalculationType(ChargeCalculationType.FLAT),
                 chargeCalculationType(ChargeCalculationType.PERCENT_OF_AMOUNT),
                 chargeCalculationType(ChargeCalculationType.PERCENT_OF_AMOUNT_AND_INTEREST),
-                chargeCalculationType(ChargeCalculationType.PERCENT_OF_INTEREST));
+                chargeCalculationType(ChargeCalculationType.PERCENT_OF_INTEREST),
+                chargeCalculationType(ChargeCalculationType.PERCENT_OF_DISBURSEMENT_AMOUNT));
     }
 
     @Override
     public List<EnumOptionData> retrieveLoanCollectionTimeTypes() {
         return Arrays.asList(chargeTimeType(ChargeTimeType.DISBURSEMENT), chargeTimeType(ChargeTimeType.SPECIFIED_DUE_DATE),
-                chargeTimeType(ChargeTimeType.INSTALMENT_FEE), chargeTimeType(ChargeTimeType.OVERDUE_INSTALLMENT));
+                chargeTimeType(ChargeTimeType.INSTALMENT_FEE), chargeTimeType(ChargeTimeType.OVERDUE_INSTALLMENT),
+                chargeTimeType(ChargeTimeType.TRANCHE_DISBURSEMENT));
     }
 
     @Override
@@ -84,6 +88,17 @@ public class ChargeDropdownReadPlatformServiceImpl implements ChargeDropdownRead
         return Arrays.asList(chargeTimeType(ChargeTimeType.SPECIFIED_DUE_DATE), chargeTimeType(ChargeTimeType.SAVINGS_ACTIVATION),
                 // chargeTimeType(ChargeTimeType.SAVINGS_CLOSURE),
                 chargeTimeType(ChargeTimeType.WITHDRAWAL_FEE), chargeTimeType(ChargeTimeType.ANNUAL_FEE),
-                chargeTimeType(ChargeTimeType.MONTHLY_FEE), chargeTimeType(ChargeTimeType.OVERDRAFT_FEE));
+                chargeTimeType(ChargeTimeType.MONTHLY_FEE), chargeTimeType(ChargeTimeType.WEEKLY_FEE),
+                chargeTimeType(ChargeTimeType.OVERDRAFT_FEE));
+    }
+
+    @Override
+    public List<EnumOptionData> retrieveClientCalculationTypes() {
+        return Arrays.asList(chargeCalculationType(ChargeCalculationType.FLAT));
+    }
+
+    @Override
+    public List<EnumOptionData> retrieveClientCollectionTimeTypes() {
+        return Arrays.asList(chargeTimeType(ChargeTimeType.SPECIFIED_DUE_DATE));
     }
 }

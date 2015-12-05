@@ -5,9 +5,11 @@
  */
 package org.mifosplatform.portfolio.savings.domain;
 
+import static org.mifosplatform.portfolio.savings.SavingsApiConstants.SAVINGS_ACCOUNT_RESOURCE_NAME;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.accountNoParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.allowOverdraftParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.clientIdParamName;
+import static org.mifosplatform.portfolio.savings.SavingsApiConstants.enforceMinRequiredBalanceParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.externalIdParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.fieldOfficerIdParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.groupIdParamName;
@@ -17,6 +19,7 @@ import static org.mifosplatform.portfolio.savings.SavingsApiConstants.interestCo
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.interestPostingPeriodTypeParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.lockinPeriodFrequencyParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.lockinPeriodFrequencyTypeParamName;
+import static org.mifosplatform.portfolio.savings.SavingsApiConstants.minRequiredBalanceParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.minRequiredOpeningBalanceParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.nominalAnnualInterestRateParamName;
 import static org.mifosplatform.portfolio.savings.SavingsApiConstants.overdraftLimitParamName;
@@ -33,6 +36,7 @@ import org.mifosplatform.infrastructure.core.serialization.FromJsonHelper;
 import org.mifosplatform.infrastructure.core.service.DateUtils;
 import org.mifosplatform.organisation.staff.domain.Staff;
 import org.mifosplatform.organisation.staff.domain.StaffRepositoryWrapper;
+import org.mifosplatform.portfolio.account.service.AccountTransfersReadPlatformService;
 import org.mifosplatform.portfolio.accountdetails.domain.AccountType;
 import org.mifosplatform.portfolio.client.domain.Client;
 import org.mifosplatform.portfolio.client.domain.ClientRepositoryWrapper;
@@ -58,7 +62,7 @@ import com.google.gson.JsonElement;
 public class SavingsAccountAssembler {
 
     private final SavingsAccountTransactionSummaryWrapper savingsAccountTransactionSummaryWrapper;
-    private final SavingsHelper savingsHelper = new SavingsHelper();
+    private final SavingsHelper savingsHelper;
     private final ClientRepositoryWrapper clientRepository;
     private final GroupRepositoryWrapper groupRepository;
     private final StaffRepositoryWrapper staffRepository;
@@ -72,7 +76,8 @@ public class SavingsAccountAssembler {
             final ClientRepositoryWrapper clientRepository, final GroupRepositoryWrapper groupRepository,
             final StaffRepositoryWrapper staffRepository, final SavingsProductRepository savingProductRepository,
             final SavingsAccountRepositoryWrapper savingsAccountRepository,
-            final SavingsAccountChargeAssembler savingsAccountChargeAssembler, final FromJsonHelper fromApiJsonHelper) {
+            final SavingsAccountChargeAssembler savingsAccountChargeAssembler, final FromJsonHelper fromApiJsonHelper,
+            final AccountTransfersReadPlatformService accountTransfersReadPlatformService) {
         this.savingsAccountTransactionSummaryWrapper = savingsAccountTransactionSummaryWrapper;
         this.clientRepository = clientRepository;
         this.groupRepository = groupRepository;
@@ -81,6 +86,7 @@ public class SavingsAccountAssembler {
         this.savingsAccountRepository = savingsAccountRepository;
         this.savingsAccountChargeAssembler = savingsAccountChargeAssembler;
         this.fromApiJsonHelper = fromApiJsonHelper;
+        savingsHelper = new SavingsHelper(accountTransfersReadPlatformService);
     }
 
     /**
@@ -206,18 +212,39 @@ public class SavingsAccountAssembler {
         boolean allowOverdraft = false;
         if (command.parameterExists(allowOverdraftParamName)) {
             allowOverdraft = command.booleanPrimitiveValueOfParameterNamed(allowOverdraftParamName);
+        } else {
+            allowOverdraft = product.isAllowOverdraft();
         }
 
-        final BigDecimal overdraftLimit = command.bigDecimalValueOfParameterNamedDefaultToNullIfZero(overdraftLimitParamName);
+        BigDecimal overdraftLimit = BigDecimal.ZERO;
+        if (command.parameterExists(overdraftLimitParamName)) {
+            overdraftLimit = command.bigDecimalValueOfParameterNamedDefaultToNullIfZero(overdraftLimitParamName);
+        } else {
+            overdraftLimit = product.overdraftLimit();
+        }
+
+        boolean enforceMinRequiredBalance = false;
+        if (command.parameterExists(enforceMinRequiredBalanceParamName)) {
+            enforceMinRequiredBalance = command.booleanPrimitiveValueOfParameterNamed(enforceMinRequiredBalanceParamName);
+        } else {
+            enforceMinRequiredBalance = product.isMinRequiredBalanceEnforced();
+        }
+
+        BigDecimal minRequiredBalance = BigDecimal.ZERO;
+        if (command.parameterExists(minRequiredBalanceParamName)) {
+            minRequiredBalance = command.bigDecimalValueOfParameterNamedDefaultToNullIfZero(minRequiredBalanceParamName);
+        } else {
+            minRequiredBalance = product.minRequiredBalance();
+        }
 
         final SavingsAccount account = SavingsAccount.createNewApplicationForSubmittal(client, group, product, fieldOfficer, accountNo,
                 externalId, accountType, submittedOnDate, submittedBy, interestRate, interestCompoundingPeriodType,
                 interestPostingPeriodType, interestCalculationType, interestCalculationDaysInYearType, minRequiredOpeningBalance,
                 lockinPeriodFrequency, lockinPeriodFrequencyType, iswithdrawalFeeApplicableForTransfer, charges, allowOverdraft,
-                overdraftLimit);
+                overdraftLimit, enforceMinRequiredBalance, minRequiredBalance);
         account.setHelpers(this.savingsAccountTransactionSummaryWrapper, this.savingsHelper);
 
-        account.validateNewApplicationState(DateUtils.getLocalDateOfTenant());
+        account.validateNewApplicationState(DateUtils.getLocalDateOfTenant(), SAVINGS_ACCOUNT_RESOURCE_NAME);
 
         account.validateAccountValuesWithProduct();
 
@@ -228,6 +255,10 @@ public class SavingsAccountAssembler {
         final SavingsAccount account = this.savingsAccountRepository.findOneWithNotFoundDetection(savingsId);
         account.setHelpers(this.savingsAccountTransactionSummaryWrapper, this.savingsHelper);
         return account;
+    }
+
+    public void setHelpers(final SavingsAccount account) {
+        account.setHelpers(this.savingsAccountTransactionSummaryWrapper, this.savingsHelper);
     }
 
     /**
@@ -263,10 +294,11 @@ public class SavingsAccountAssembler {
                 accountType, appliedonDate, appliedBy, product.nominalAnnualInterestRate(), product.interestCompoundingPeriodType(),
                 product.interestPostingPeriodType(), product.interestCalculationType(), product.interestCalculationDaysInYearType(),
                 product.minRequiredOpeningBalance(), product.lockinPeriodFrequency(), product.lockinPeriodFrequencyType(),
-                product.isWithdrawalFeeApplicableForTransfer(), charges, product.isAllowOverdraft(), product.overdraftLimit());
+                product.isWithdrawalFeeApplicableForTransfer(), charges, product.isAllowOverdraft(), product.overdraftLimit(),
+                product.isMinRequiredBalanceEnforced(), product.minRequiredBalance());
         account.setHelpers(this.savingsAccountTransactionSummaryWrapper, this.savingsHelper);
 
-        account.validateNewApplicationState(DateUtils.getLocalDateOfTenant());
+        account.validateNewApplicationState(DateUtils.getLocalDateOfTenant(), SAVINGS_ACCOUNT_RESOURCE_NAME);
 
         account.validateAccountValuesWithProduct();
 

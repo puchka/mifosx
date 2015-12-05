@@ -22,20 +22,23 @@ import org.apache.commons.lang.StringUtils;
 import org.mifosplatform.commands.domain.CommandWrapper;
 import org.mifosplatform.commands.service.CommandWrapperBuilder;
 import org.mifosplatform.commands.service.PortfolioCommandSourceWritePlatformService;
-import org.mifosplatform.infrastructure.codes.data.CodeValueData;
-import org.mifosplatform.infrastructure.codes.service.CodeValueReadPlatformService;
 import org.mifosplatform.infrastructure.core.api.ApiRequestParameterHelper;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
+import org.mifosplatform.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.mifosplatform.infrastructure.core.exception.UnrecognizedQueryParamException;
 import org.mifosplatform.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.mifosplatform.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
-import org.mifosplatform.portfolio.paymentdetail.PaymentDetailConstants;
+import org.mifosplatform.portfolio.paymenttype.data.PaymentTypeData;
+import org.mifosplatform.portfolio.paymenttype.service.PaymentTypeReadPlatformService;
+import org.mifosplatform.portfolio.savings.DepositAccountType;
 import org.mifosplatform.portfolio.savings.SavingsApiConstants;
 import org.mifosplatform.portfolio.savings.data.SavingsAccountTransactionData;
 import org.mifosplatform.portfolio.savings.service.SavingsAccountReadPlatformService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 @Path("/savingsaccounts/{savingsId}/transactions")
@@ -48,7 +51,7 @@ public class SavingsAccountTransactionsApiResource {
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final SavingsAccountReadPlatformService savingsAccountReadPlatformService;
-    private final CodeValueReadPlatformService codeValueReadPlatformService;
+    private final PaymentTypeReadPlatformService paymentTypeReadPlatformService;
 
     @Autowired
     public SavingsAccountTransactionsApiResource(final PlatformSecurityContext context,
@@ -56,13 +59,13 @@ public class SavingsAccountTransactionsApiResource {
             final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService,
             final ApiRequestParameterHelper apiRequestParameterHelper,
             final SavingsAccountReadPlatformService savingsAccountReadPlatformService,
-            final CodeValueReadPlatformService codeValueReadPlatformService) {
+            PaymentTypeReadPlatformService paymentTypeReadPlatformService) {
         this.context = context;
         this.toApiJsonSerializer = toApiJsonSerializer;
         this.commandsSourceWritePlatformService = commandsSourceWritePlatformService;
         this.apiRequestParameterHelper = apiRequestParameterHelper;
         this.savingsAccountReadPlatformService = savingsAccountReadPlatformService;
-        this.codeValueReadPlatformService = codeValueReadPlatformService;
+        this.paymentTypeReadPlatformService = paymentTypeReadPlatformService;
     }
 
     private boolean is(final String commandParam, final String commandValue) {
@@ -81,9 +84,9 @@ public class SavingsAccountTransactionsApiResource {
 
         // FIXME - KW - for now just send back generic default information for
         // both deposit/withdrawal templates
-        SavingsAccountTransactionData savingsAccount = this.savingsAccountReadPlatformService.retrieveDepositTransactionTemplate(savingsId);
-        final Collection<CodeValueData> paymentTypeOptions = this.codeValueReadPlatformService
-                .retrieveCodeValuesByCode(PaymentDetailConstants.paymentTypeCodeName);
+        SavingsAccountTransactionData savingsAccount = this.savingsAccountReadPlatformService.retrieveDepositTransactionTemplate(savingsId,
+                DepositAccountType.SAVINGS_DEPOSIT);
+        final Collection<PaymentTypeData> paymentTypeOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
         savingsAccount = SavingsAccountTransactionData.templateOnTop(savingsAccount, paymentTypeOptions);
 
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
@@ -100,11 +103,10 @@ public class SavingsAccountTransactionsApiResource {
 
         this.context.authenticatedUser().validateHasReadPermission(SavingsApiConstants.SAVINGS_ACCOUNT_RESOURCE_NAME);
         SavingsAccountTransactionData transactionData = this.savingsAccountReadPlatformService.retrieveSavingsTransaction(savingsId,
-                transactionId);
+                transactionId, DepositAccountType.SAVINGS_DEPOSIT);
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         if (settings.isTemplate()) {
-            final Collection<CodeValueData> paymentTypeOptions = this.codeValueReadPlatformService
-                    .retrieveCodeValuesByCode(PaymentDetailConstants.paymentTypeCodeName);
+            final Collection<PaymentTypeData> paymentTypeOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
             transactionData = SavingsAccountTransactionData.templateOnTop(transactionData, paymentTypeOptions);
         }
 
@@ -117,24 +119,31 @@ public class SavingsAccountTransactionsApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String transaction(@PathParam("savingsId") final Long savingsId, @QueryParam("command") final String commandParam,
             final String apiRequestBodyAsJson) {
+        try {
+            final CommandWrapperBuilder builder = new CommandWrapperBuilder().withJson(apiRequestBodyAsJson);
 
-        final CommandWrapperBuilder builder = new CommandWrapperBuilder().withJson(apiRequestBodyAsJson);
+            CommandProcessingResult result = null;
+            if (is(commandParam, "deposit")) {
+                final CommandWrapper commandRequest = builder.savingsAccountDeposit(savingsId).build();
+                result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            } else if (is(commandParam, "withdrawal")) {
+                final CommandWrapper commandRequest = builder.savingsAccountWithdrawal(savingsId).build();
+                result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            }
 
-        CommandProcessingResult result = null;
-        if (is(commandParam, "deposit")) {
-            final CommandWrapper commandRequest = builder.savingsAccountDeposit(savingsId).build();
-            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
-        } else if (is(commandParam, "withdrawal")) {
-            final CommandWrapper commandRequest = builder.savingsAccountWithdrawal(savingsId).build();
-            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            if (result == null) {
+                //
+                throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "deposit", "withdrawal" });
+            }
+
+            return this.toApiJsonSerializer.serialize(result);
+        } catch (ObjectOptimisticLockingFailureException lockingFailureException) {
+            throw new PlatformDataIntegrityException("error.msg.savings.concurrent.operations",
+                    "Concurrent Transactions being made on this savings account: " + lockingFailureException.getMessage());
+        } catch (CannotAcquireLockException cannotAcquireLockException) {
+            throw new PlatformDataIntegrityException("error.msg.savings.concurrent.operations.unable.to.acquire.lock",
+                    "Unable to acquir lock for this transaction: " + cannotAcquireLockException.getMessage());
         }
-
-        if (result == null) {
-            //
-            throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "deposit", "withdrawal" });
-        }
-
-        return this.toApiJsonSerializer.serialize(result);
     }
 
     @POST

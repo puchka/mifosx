@@ -44,4 +44,12 @@ public enum AmortizationMethod {
         }
         return repaymentMethod;
     }
+
+    public boolean isEqualInstallment() {
+        return this.value.equals(AmortizationMethod.EQUAL_INSTALLMENTS.getValue());
+    }
+    
+    public boolean isEqualPrincipal() {
+        return this.value.equals(AmortizationMethod.EQUAL_PRINCIPAL.getValue());
+    }
 }

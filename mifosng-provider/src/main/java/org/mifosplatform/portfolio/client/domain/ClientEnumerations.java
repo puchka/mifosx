@@ -5,6 +5,9 @@
  */
 package org.mifosplatform.portfolio.client.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.mifosplatform.infrastructure.core.data.EnumOptionData;
 
 public class ClientEnumerations {
@@ -29,6 +32,13 @@ public class ClientEnumerations {
             case CLOSED:
                 optionData = new EnumOptionData(ClientStatus.CLOSED.getValue().longValue(), ClientStatus.CLOSED.getCode(), "Closed");
             break;
+            case REJECTED:
+                optionData = new EnumOptionData(ClientStatus.REJECTED.getValue().longValue(), ClientStatus.REJECTED.getCode(), "Rejected");
+            break;
+            case WITHDRAWN:
+                optionData = new EnumOptionData(ClientStatus.WITHDRAWN.getValue().longValue(), ClientStatus.WITHDRAWN.getCode(),
+                        "Withdrawn");
+            break;
             case TRANSFER_IN_PROGRESS:
                 optionData = new EnumOptionData(ClientStatus.TRANSFER_IN_PROGRESS.getValue().longValue(),
                         ClientStatus.TRANSFER_IN_PROGRESS.getCode(), "Transfer in progress");
@@ -43,4 +53,23 @@ public class ClientEnumerations {
 
         return optionData;
     }
+
+    public static EnumOptionData clientTransactionType(final int id) {
+        return clientTransactionType(ClientTransactionType.fromInt(id));
+    }
+
+    public static EnumOptionData clientTransactionType(final ClientTransactionType clientTransactionType) {
+        final EnumOptionData optionData = new EnumOptionData(clientTransactionType.getValue().longValue(), clientTransactionType.getCode(),
+                clientTransactionType.toString());
+        return optionData;
+    }
+
+    public static List<EnumOptionData> clientTransactionType(final ClientTransactionType[] clientTransactionTypes) {
+        final List<EnumOptionData> optionDatas = new ArrayList<>();
+        for (final ClientTransactionType clientTransaction : clientTransactionTypes) {
+            optionDatas.add(clientTransactionType(clientTransaction));
+        }
+        return optionDatas;
+    }
+
 }

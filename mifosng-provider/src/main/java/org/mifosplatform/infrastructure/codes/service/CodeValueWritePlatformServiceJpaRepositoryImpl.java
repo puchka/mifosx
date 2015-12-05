@@ -59,14 +59,18 @@ public class CodeValueWritePlatformServiceJpaRepositoryImpl implements CodeValue
 
             this.fromApiJsonDeserializer.validateForCreate(command.json());
 
-            final Long codeId = command.getCodeId();
+            final Long codeId = command.entityId();
             final Code code = this.codeRepository.findOne(codeId);
+            if (code == null) {
+                throw new CodeNotFoundException(codeId);
+            }
             final CodeValue codeValue = CodeValue.fromJson(code, command);
             this.codeValueRepository.save(codeValue);
 
             return new CommandProcessingResultBuilder() //
                     .withCommandId(command.commandId()) //
-                    .withEntityId(codeValue.getId()) //
+                    .withEntityId(code.getId()) //
+                    .withSubEntityId(codeValue.getId())//
                     .build();
         } catch (final DataIntegrityViolationException dve) {
             handleCodeValueDataIntegrityIssues(command, dve);
@@ -143,10 +147,14 @@ public class CodeValueWritePlatformServiceJpaRepositoryImpl implements CodeValue
             }
 
             return new CommandProcessingResultBuilder() //
-                    .withEntityId(codeValueId) //
+                    .withEntityId(codeId) //
+                    .withSubEntityId(codeValueId)//
                     .build();
         } catch (final DataIntegrityViolationException dve) {
             logger.error(dve.getMessage(), dve);
+            final Throwable realCause = dve.getMostSpecificCause();
+            if (realCause.getMessage().contains("code_value")) { throw new PlatformDataIntegrityException("error.msg.codeValue.in.use",
+                    "This code value is in use", codeValueId); }
             throw new PlatformDataIntegrityException("error.msg.code.value.unknown.data.integrity.issue",
                     "Unknown data integrity issue with resource: " + dve.getMostSpecificCause().getMessage());
         }

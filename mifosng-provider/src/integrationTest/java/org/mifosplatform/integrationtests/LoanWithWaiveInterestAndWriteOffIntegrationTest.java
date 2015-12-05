@@ -1,7 +1,13 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests;
 
 import java.util.HashMap;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mifosplatform.integrationtests.common.ClientHelper;
@@ -111,12 +117,62 @@ public class LoanWithWaiveInterestAndWriteOffIntegrationTest {
 
     }
 
+    @Test
+    public void checkClientLoan_WRITTEN_OFF() {
+        // CREATE CLIENT
+        final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec, this.DATE_OF_JOINING);
+        ClientHelper.verifyClientCreatedOnServer(this.requestSpec, this.responseSpec, clientID);
+
+        // CREATE LOAN PRODUCT
+        final Integer loanProductID = createLoanProduct();
+        // APPLY FOR LOAN
+        final Integer loanID = applyForLoanApplication(clientID, loanProductID);
+
+        HashMap loanStatusHashMap = LoanStatusChecker.getStatusOfLoan(this.requestSpec, this.responseSpec, loanID);
+        LoanStatusChecker.verifyLoanIsPending(loanStatusHashMap);
+
+        System.out.println("-----------------------------------APPROVE LOAN-----------------------------------------");
+        loanStatusHashMap = this.loanTransactionHelper.approveLoan("28 September 2010", loanID);
+        LoanStatusChecker.verifyLoanIsApproved(loanStatusHashMap);
+        LoanStatusChecker.verifyLoanIsWaitingForDisbursal(loanStatusHashMap);
+
+        // DISBURSE
+        loanStatusHashMap = this.loanTransactionHelper.disburseLoan(this.DISBURSEMENT_DATE, loanID);
+        System.out.println("DISBURSE " + loanStatusHashMap);
+        LoanStatusChecker.verifyLoanIsActive(loanStatusHashMap);
+
+        // MAKE REPAYMENTS
+        final float repayment_with_interest = 680.0f;
+
+        this.loanTransactionHelper.verifyRepaymentScheduleEntryFor(1, 4000.0F, loanID);
+        this.loanTransactionHelper.makeRepayment("1 January 2011", repayment_with_interest, loanID);
+
+        HashMap toLoanSummaryAfter = this.loanTransactionHelper.getLoanSummary(requestSpec, responseSpec, loanID);
+        Assert.assertTrue("Checking for Principal paid ",
+                new Float("500.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("principalPaid")))) == 0);
+        Assert.assertTrue("Checking for interestPaid paid ",
+                new Float("180.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("interestPaid")))) == 0);
+        Assert.assertTrue("Checking for total paid ",
+                new Float("680.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("totalRepayment")))) == 0);
+
+        // WRITE OFF LOAN AND CHECK ACCOUNT IS CLOSED
+        LoanStatusChecker.verifyLoanAccountIsClosed(this.loanTransactionHelper.writeOffLoan("1 January 2011", loanID));
+        toLoanSummaryAfter = this.loanTransactionHelper.getLoanSummary(requestSpec, responseSpec, loanID);
+        Assert.assertTrue("Checking for Principal written off ",
+                new Float("4000.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("principalWrittenOff")))) == 0);
+        Assert.assertTrue("Checking for interestPaid written off ",
+                new Float("1440.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("interestWrittenOff")))) == 0);
+        Assert.assertTrue("Checking for total written off ",
+                new Float("5440.0").compareTo(new Float(String.valueOf(toLoanSummaryAfter.get("totalWrittenOff")))) == 0);
+
+    }
+
     private Integer createLoanProduct() {
         System.out.println("------------------------------CREATING NEW LOAN PRODUCT ---------------------------------------");
         final String loanProductJSON = new LoanProductTestBuilder().withPrincipal(this.LP_PRINCIPAL).withRepaymentTypeAsMonth()
                 .withRepaymentAfterEvery(this.LP_REPAYMENT_PERIOD).withNumberOfRepayments(this.LP_REPAYMENTS).withRepaymentTypeAsMonth()
                 .withinterestRatePerPeriod(this.LP_INTEREST_RATE).withInterestRateFrequencyTypeAsMonths()
-                .withAmortizationTypeAsEqualPrincipalPayment().withInterestTypeAsFlat().build();
+                .withAmortizationTypeAsEqualPrincipalPayment().withInterestTypeAsFlat().build(null);
 
         return this.loanTransactionHelper.getLoanProductId(loanProductJSON);
     }
@@ -129,7 +185,7 @@ public class LoanWithWaiveInterestAndWriteOffIntegrationTest {
                 .withRepaymentFrequencyTypeAsMonths().withInterestRatePerPeriod(this.RATE_OF_INTEREST_PER_PERIOD)
                 .withInterestTypeAsFlatBalance().withAmortizationTypeAsEqualInstallments()
                 .withInterestCalculationPeriodTypeSameAsRepaymentPeriod().withExpectedDisbursementDate(this.EXPECTED_DISBURSAL_DATE)
-                .withSubmittedOnDate(this.LOAN_APPLICATION_SUBMISSION_DATE).build(clientID.toString(), loanProductID.toString());
+                .withSubmittedOnDate(this.LOAN_APPLICATION_SUBMISSION_DATE).build(clientID.toString(), loanProductID.toString(), null);
         return this.loanTransactionHelper.getLoanId(loanApplicationJSON);
     }
 }

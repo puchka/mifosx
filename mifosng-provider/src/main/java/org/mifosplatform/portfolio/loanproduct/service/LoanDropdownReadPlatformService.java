@@ -22,11 +22,23 @@ public interface LoanDropdownReadPlatformService {
     List<EnumOptionData> retrieveLoanTermFrequencyTypeOptions();
 
     List<EnumOptionData> retrieveRepaymentFrequencyTypeOptions();
+    
+    List<EnumOptionData> retrieveRepaymentFrequencyOptionsForNthDayOfMonth();
+    
+    List<EnumOptionData> retrieveRepaymentFrequencyOptionsForDaysOfWeek();
 
     List<EnumOptionData> retrieveInterestRateFrequencyTypeOptions();
 
     Collection<TransactionProcessingStrategyData> retreiveTransactionProcessingStrategies();
 
     List<EnumOptionData> retrieveLoanCycleValueConditionTypeOptions();
+
+    List<EnumOptionData> retrieveInterestRecalculationCompoundingTypeOptions();
+
+    List<EnumOptionData> retrieveRescheduleStrategyTypeOptions();
+    
+    List<EnumOptionData> retrieveInterestRecalculationFrequencyTypeOptions();
+    
+    List<EnumOptionData> retrivePreCloseInterestCalculationStrategyOptions();
 
 }

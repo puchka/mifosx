@@ -5,16 +5,29 @@
  */
 package org.mifosplatform.scheduledjobs.service;
 
+import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
+import org.joda.time.LocalDate;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.mifosplatform.infrastructure.core.data.ApiParameterError;
 import org.mifosplatform.infrastructure.core.exception.PlatformApiDataValidationException;
+import org.mifosplatform.infrastructure.core.service.DateUtils;
 import org.mifosplatform.infrastructure.core.service.RoutingDataSourceServiceFactory;
 import org.mifosplatform.infrastructure.core.service.ThreadLocalContextUtil;
 import org.mifosplatform.infrastructure.jobs.annotation.CronTarget;
+import org.mifosplatform.infrastructure.jobs.exception.JobExecutionException;
 import org.mifosplatform.infrastructure.jobs.service.JobName;
+import org.mifosplatform.portfolio.savings.DepositAccountType;
+import org.mifosplatform.portfolio.savings.DepositAccountUtils;
+import org.mifosplatform.portfolio.savings.data.DepositAccountData;
 import org.mifosplatform.portfolio.savings.data.SavingsAccountAnnualFeeData;
+import org.mifosplatform.portfolio.savings.service.DepositAccountReadPlatformService;
+import org.mifosplatform.portfolio.savings.service.DepositAccountWritePlatformService;
 import org.mifosplatform.portfolio.savings.service.SavingsAccountChargeReadPlatformService;
 import org.mifosplatform.portfolio.savings.service.SavingsAccountWritePlatformService;
 import org.slf4j.Logger;
@@ -28,18 +41,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class ScheduledJobRunnerServiceImpl implements ScheduledJobRunnerService {
 
     private final static Logger logger = LoggerFactory.getLogger(ScheduledJobRunnerServiceImpl.class);
+    private final DateTimeFormatter formatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+    private final DateTimeFormatter formatterWithTime = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss");
 
     private final RoutingDataSourceServiceFactory dataSourceServiceFactory;
     private final SavingsAccountWritePlatformService savingsAccountWritePlatformService;
     private final SavingsAccountChargeReadPlatformService savingsAccountChargeReadPlatformService;
+    private final DepositAccountReadPlatformService depositAccountReadPlatformService;
+    private final DepositAccountWritePlatformService depositAccountWritePlatformService;
 
     @Autowired
     public ScheduledJobRunnerServiceImpl(final RoutingDataSourceServiceFactory dataSourceServiceFactory,
             final SavingsAccountWritePlatformService savingsAccountWritePlatformService,
-            final SavingsAccountChargeReadPlatformService savingsAccountChargeReadPlatformService) {
+            final SavingsAccountChargeReadPlatformService savingsAccountChargeReadPlatformService,
+            final DepositAccountReadPlatformService depositAccountReadPlatformService,
+            final DepositAccountWritePlatformService depositAccountWritePlatformService) {
         this.dataSourceServiceFactory = dataSourceServiceFactory;
         this.savingsAccountWritePlatformService = savingsAccountWritePlatformService;
         this.savingsAccountChargeReadPlatformService = savingsAccountChargeReadPlatformService;
+        this.depositAccountReadPlatformService = depositAccountReadPlatformService;
+        this.depositAccountWritePlatformService = depositAccountWritePlatformService;
     }
 
     @Transactional
@@ -60,8 +81,10 @@ public class ScheduledJobRunnerServiceImpl implements ScheduledJobRunnerService 
         updateSqlBuilder.append("SUM(IFNULL(mr.interest_completed_derived,0)) as interest_repaid_derived,");
         updateSqlBuilder.append("SUM(IFNULL(mr.interest_waived_derived,0)) as interest_waived_derived,");
         updateSqlBuilder.append("SUM(IFNULL(mr.interest_writtenoff_derived,0)) as interest_writtenoff_derived,");
-        updateSqlBuilder.append("SUM(IFNULL(mr.fee_charges_amount,0)) + IFNULL((select SUM(lc.amount) from  m_loan_charge lc where lc.loan_id=ml.id and lc.is_active=1 and lc.charge_id=1),0) as fee_charges_charged_derived,");
-        updateSqlBuilder.append("SUM(IFNULL(mr.fee_charges_completed_derived,0)) + IFNULL((select SUM(lc.amount_paid_derived) from  m_loan_charge lc where lc.loan_id=ml.id and lc.is_active=1 and lc.charge_id=1),0) as fee_charges_repaid_derived,");
+        updateSqlBuilder
+                .append("SUM(IFNULL(mr.fee_charges_amount,0)) + IFNULL((select SUM(lc.amount) from  m_loan_charge lc where lc.loan_id=ml.id and lc.is_active=1 and lc.charge_time_enum=1),0) as fee_charges_charged_derived,");
+        updateSqlBuilder
+                .append("SUM(IFNULL(mr.fee_charges_completed_derived,0)) + IFNULL((select SUM(lc.amount_paid_derived) from  m_loan_charge lc where lc.loan_id=ml.id and lc.is_active=1 and lc.charge_time_enum=1),0) as fee_charges_repaid_derived,");
         updateSqlBuilder.append("SUM(IFNULL(mr.fee_charges_waived_derived,0)) as fee_charges_waived_derived,");
         updateSqlBuilder.append("SUM(IFNULL(mr.fee_charges_writtenoff_derived,0)) as fee_charges_writtenoff_derived,");
         updateSqlBuilder.append("SUM(IFNULL(mr.penalty_charges_amount,0)) as penalty_charges_charged_derived,");
@@ -125,46 +148,6 @@ public class ScheduledJobRunnerServiceImpl implements ScheduledJobRunnerService 
 
     @Transactional
     @Override
-    @CronTarget(jobName = JobName.UPDATE_LOAN_ARREARS_AGEING)
-    public void updateLoanArrearsAgeingDetails() {
-
-        final JdbcTemplate jdbcTemplate = new JdbcTemplate(this.dataSourceServiceFactory.determineDataSourceService().retrieveDataSource());
-
-        jdbcTemplate.execute("truncate table m_loan_arrears_aging");
-
-        final StringBuilder updateSqlBuilder = new StringBuilder(900);
-
-        updateSqlBuilder
-                .append("INSERT INTO m_loan_arrears_aging(`loan_id`,`principal_overdue_derived`,`interest_overdue_derived`,`fee_charges_overdue_derived`,`penalty_charges_overdue_derived`,`total_overdue_derived`,`overdue_since_date_derived`)");
-        updateSqlBuilder.append("select ml.id as loanId,");
-        updateSqlBuilder
-                .append("SUM((ifnull(mr.principal_amount,0) - ifnull(mr.principal_completed_derived, 0))) as principal_overdue_derived,");
-        updateSqlBuilder
-                .append("SUM((ifnull(mr.interest_amount,0)  - ifnull(mr.interest_completed_derived, 0))) as interest_overdue_derived,");
-        updateSqlBuilder
-                .append("SUM((ifnull(mr.fee_charges_amount,0)  - ifnull(mr.fee_charges_completed_derived, 0))) as fee_charges_overdue_derived,");
-        updateSqlBuilder
-                .append("SUM((ifnull(mr.penalty_charges_amount,0)  - ifnull(mr.penalty_charges_completed_derived, 0))) as penalty_charges_overdue_derived,");
-        updateSqlBuilder.append("SUM((ifnull(mr.principal_amount,0) - ifnull(mr.principal_completed_derived, 0))) +");
-        updateSqlBuilder.append("SUM((ifnull(mr.interest_amount,0)  - ifnull(mr.interest_completed_derived, 0))) +");
-        updateSqlBuilder.append("SUM((ifnull(mr.fee_charges_amount,0)  - ifnull(mr.fee_charges_completed_derived, 0))) +");
-        updateSqlBuilder
-                .append("SUM((ifnull(mr.penalty_charges_amount,0)  - ifnull(mr.penalty_charges_completed_derived, 0))) as total_overdue_derived,");
-        updateSqlBuilder.append("MIN(mr.duedate) as overdue_since_date_derived ");
-        updateSqlBuilder.append(" FROM m_loan ml ");
-        updateSqlBuilder.append(" INNER JOIN m_loan_repayment_schedule mr on mr.loan_id = ml.id ");
-        updateSqlBuilder.append(" WHERE ml.loan_status_id = 300 "); // active
-        updateSqlBuilder.append(" and mr.completed_derived is false ");
-        updateSqlBuilder.append(" and mr.duedate < CURDATE() ");
-        updateSqlBuilder.append(" GROUP BY ml.id");
-
-        final int result = jdbcTemplate.update(updateSqlBuilder.toString());
-
-        logger.info(ThreadLocalContextUtil.getTenant().getName() + ": Results affected by update: " + result);
-    }
-
-    @Transactional
-    @Override
     @CronTarget(jobName = JobName.UPDATE_LOAN_PAID_IN_ADVANCE)
     public void updateLoanPaidInAdvance() {
 
@@ -215,8 +198,8 @@ public class ScheduledJobRunnerServiceImpl implements ScheduledJobRunnerService 
                     logger.error("Apply annual fee failed for account:" + savingsAccountReference.getAccountNo() + " with message "
                             + error.getDeveloperMessage());
                 }
-            } catch (final Exception ex){
-                //need to handle this scenario
+            } catch (final Exception ex) {
+                // need to handle this scenario
             }
         }
 
@@ -225,23 +208,147 @@ public class ScheduledJobRunnerServiceImpl implements ScheduledJobRunnerService 
 
     @Override
     @CronTarget(jobName = JobName.PAY_DUE_SAVINGS_CHARGES)
-    public void applyDueChargesForSavings() {
+    public void applyDueChargesForSavings() throws JobExecutionException {
         final Collection<SavingsAccountAnnualFeeData> chargesDueData = this.savingsAccountChargeReadPlatformService
                 .retrieveChargesWithDue();
-        
+        final StringBuilder errorMsg = new StringBuilder();
+
         for (final SavingsAccountAnnualFeeData savingsAccountReference : chargesDueData) {
             try {
-                this.savingsAccountWritePlatformService.applyChargeDue(savingsAccountReference.getId(), savingsAccountReference.getAccountId());
+                this.savingsAccountWritePlatformService.applyChargeDue(savingsAccountReference.getId(),
+                        savingsAccountReference.getAccountId());
             } catch (final PlatformApiDataValidationException e) {
                 final List<ApiParameterError> errors = e.getErrors();
                 for (final ApiParameterError error : errors) {
-                    logger.error("Apply Charges due for savings failed for account:" + savingsAccountReference.getAccountNo() + " with message "
-                            + error.getDeveloperMessage());
+                    logger.error("Apply Charges due for savings failed for account:" + savingsAccountReference.getAccountNo()
+                            + " with message " + error.getDeveloperMessage());
+                    errorMsg.append("Apply Charges due for savings failed for account:").append(savingsAccountReference.getAccountNo())
+                            .append(" with message ").append(error.getDeveloperMessage());
                 }
             }
         }
-        
+
         logger.info(ThreadLocalContextUtil.getTenant().getName() + ": Savings accounts affected by update: " + chargesDueData.size());
+
+        /*
+         * throw exception if any charge payment fails.
+         */
+        if (errorMsg.length() > 0) { throw new JobExecutionException(errorMsg.toString()); }
     }
-   
+
+    @Transactional
+    @Override
+    @CronTarget(jobName = JobName.UPDATE_NPA)
+    public void updateNPA() {
+
+        final JdbcTemplate jdbcTemplate = new JdbcTemplate(this.dataSourceServiceFactory.determineDataSourceService().retrieveDataSource());
+
+        final StringBuilder resetNPASqlBuilder = new StringBuilder(900);
+        resetNPASqlBuilder.append("update m_loan loan ");
+        resetNPASqlBuilder.append("left join m_loan_arrears_aging laa on laa.loan_id = loan.id ");
+        resetNPASqlBuilder.append("inner join m_product_loan mpl on mpl.id = loan.product_id and mpl.overdue_days_for_npa is not null ");
+        resetNPASqlBuilder.append("set loan.is_npa = 0 ");
+        resetNPASqlBuilder.append("where  loan.loan_status_id = 300 and mpl.account_moves_out_of_npa_only_on_arrears_completion = 0 ");
+        resetNPASqlBuilder
+                .append("or (mpl.account_moves_out_of_npa_only_on_arrears_completion = 1 and laa.overdue_since_date_derived is null)");
+
+        jdbcTemplate.update(resetNPASqlBuilder.toString());
+
+        final StringBuilder updateSqlBuilder = new StringBuilder(900);
+
+        updateSqlBuilder.append("UPDATE m_loan as ml,");
+        updateSqlBuilder.append(" (select loan.id ");
+        updateSqlBuilder.append("from m_loan_arrears_aging laa");
+        updateSqlBuilder.append(" INNER JOIN  m_loan loan on laa.loan_id = loan.id ");
+        updateSqlBuilder.append(" INNER JOIN m_product_loan mpl on mpl.id = loan.product_id AND mpl.overdue_days_for_npa is not null ");
+        updateSqlBuilder.append("WHERE loan.loan_status_id = 300  and ");
+        updateSqlBuilder.append("laa.overdue_since_date_derived < SUBDATE(CURDATE(),INTERVAL  ifnull(mpl.overdue_days_for_npa,0) day) ");
+        updateSqlBuilder.append("group by loan.id) as sl ");
+        updateSqlBuilder.append("SET ml.is_npa=1 where ml.id=sl.id ");
+
+        final int result = jdbcTemplate.update(updateSqlBuilder.toString());
+
+        logger.info(ThreadLocalContextUtil.getTenant().getName() + ": Results affected by update: " + result);
+    }
+
+    @Override
+    @CronTarget(jobName = JobName.UPDATE_DEPOSITS_ACCOUNT_MATURITY_DETAILS)
+    public void updateMaturityDetailsOfDepositAccounts() {
+
+        final Collection<DepositAccountData> depositAccounts = this.depositAccountReadPlatformService.retrieveForMaturityUpdate();
+
+        for (final DepositAccountData depositAccount : depositAccounts) {
+            try {
+                final DepositAccountType depositAccountType = DepositAccountType.fromInt(depositAccount.depositType().getId().intValue());
+                this.depositAccountWritePlatformService.updateMaturityDetails(depositAccount.id(), depositAccountType);
+            } catch (final PlatformApiDataValidationException e) {
+                final List<ApiParameterError> errors = e.getErrors();
+                for (final ApiParameterError error : errors) {
+                    logger.error("Update maturity details failed for account:" + depositAccount.accountNo() + " with message "
+                            + error.getDeveloperMessage());
+                }
+            } catch (final Exception ex) {
+                // need to handle this scenario
+            }
+        }
+
+        logger.info(ThreadLocalContextUtil.getTenant().getName() + ": Deposit accounts affected by update: " + depositAccounts.size());
+    }
+
+    @Override
+    @CronTarget(jobName = JobName.GENERATE_RD_SCEHDULE)
+    public void generateRDSchedule() {
+        final JdbcTemplate jdbcTemplate = new JdbcTemplate(this.dataSourceServiceFactory.determineDataSourceService().retrieveDataSource());
+        final Collection<Map<String, Object>> scheduleDetails = this.depositAccountReadPlatformService.retriveDataForRDScheduleCreation();
+        String insertSql = "INSERT INTO `m_mandatory_savings_schedule` (`savings_account_id`, `duedate`, `installment`, `deposit_amount`, `completed_derived`, `created_date`, `lastmodified_date`) VALUES ";
+        StringBuilder sb = new StringBuilder();
+        String currentDate = formatterWithTime.print(DateUtils.getLocalDateTimeOfTenant());
+        int iterations = 0;
+        for (Map<String, Object> details : scheduleDetails) {
+            Long count = (Long) details.get("futureInstallemts");
+            if (count == null) {
+                count = 0l;
+            }
+            final Long savingsId = (Long) details.get("savingsId");
+            final BigDecimal amount = (BigDecimal) details.get("amount");
+            final String recurrence = (String) details.get("recurrence");
+            Date date = (Date) details.get("dueDate");
+            LocalDate lastDepositDate = new LocalDate(date);
+            Integer installmentNumber = (Integer) details.get("installment");
+            while (count < DepositAccountUtils.GENERATE_MINIMUM_NUMBER_OF_FUTURE_INSTALMENTS) {
+                count++;
+                installmentNumber++;
+                lastDepositDate = DepositAccountUtils.calculateNextDepositDate(lastDepositDate, recurrence);
+
+                if (sb.length() > 0) {
+                    sb.append(", ");
+                }
+                sb.append("(");
+                sb.append(savingsId);
+                sb.append(",'");
+                sb.append(formatter.print(lastDepositDate));
+                sb.append("',");
+                sb.append(installmentNumber);
+                sb.append(",");
+                sb.append(amount);
+                sb.append(", b'0','");
+                sb.append(currentDate);
+                sb.append("','");
+                sb.append(currentDate);
+                sb.append("')");
+                iterations++;
+                if (iterations > 200) {
+                    jdbcTemplate.update(insertSql + sb.toString());
+                    sb = new StringBuilder();
+                }
+
+            }
+        }
+
+        if (sb.length() > 0) {
+            jdbcTemplate.update(insertSql + sb.toString());
+        }
+
+    }
+
 }

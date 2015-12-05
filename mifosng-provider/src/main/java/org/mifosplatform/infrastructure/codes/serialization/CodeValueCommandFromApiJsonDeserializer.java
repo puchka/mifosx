@@ -47,13 +47,20 @@ public final class CodeValueCommandFromApiJsonDeserializer {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, this.supportedParameters);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("code.value");
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
         final String name = this.fromApiJsonHelper.extractStringNamed(CODEVALUE_JSON_INPUT_PARAMS.NAME.getValue(), element);
         baseDataValidator.reset().parameter(CODEVALUE_JSON_INPUT_PARAMS.NAME.getValue()).value(name).notBlank().notExceedingLengthOf(100);
+
+        if (this.fromApiJsonHelper.parameterExists(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue(), element)) {
+            final String description = this.fromApiJsonHelper.extractStringNamed(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue(),
+                    element);
+            baseDataValidator.reset().parameter(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue()).value(description)
+                    .notExceedingLengthOf(500);
+        }
 
         if (this.fromApiJsonHelper.parameterExists(CODEVALUE_JSON_INPUT_PARAMS.POSITION.getValue(), element)) {
             // Validate input value is a valid Integer
@@ -69,7 +76,7 @@ public final class CodeValueCommandFromApiJsonDeserializer {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, this.supportedParameters);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("code.value");
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
@@ -78,6 +85,12 @@ public final class CodeValueCommandFromApiJsonDeserializer {
             final String name = this.fromApiJsonHelper.extractStringNamed(CODEVALUE_JSON_INPUT_PARAMS.NAME.getValue(), element);
             baseDataValidator.reset().parameter(CODEVALUE_JSON_INPUT_PARAMS.NAME.getValue()).value(name).notBlank()
                     .notExceedingLengthOf(100);
+        }
+        if (this.fromApiJsonHelper.parameterExists(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue(), element)) {
+            final String description = this.fromApiJsonHelper.extractStringNamed(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue(),
+                    element);
+            baseDataValidator.reset().parameter(CODEVALUE_JSON_INPUT_PARAMS.DESCRIPTION.getValue()).value(description)
+                    .notExceedingLengthOf(500);
         }
 
         if (this.fromApiJsonHelper.parameterExists(CODEVALUE_JSON_INPUT_PARAMS.POSITION.getValue(), element)) {

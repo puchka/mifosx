@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.infrastructure.configuration.data;
 
 import static org.mifosplatform.infrastructure.configuration.api.GlobalConfigurationApiConstant.CONFIGURATION_RESOURCE_NAME;
@@ -40,7 +45,7 @@ public class GlobalConfigurationDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, UPDATE_CONFIGURATION_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource(CONFIGURATION_RESOURCE_NAME);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 

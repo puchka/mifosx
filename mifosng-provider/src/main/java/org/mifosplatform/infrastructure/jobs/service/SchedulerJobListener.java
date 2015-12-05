@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.infrastructure.jobs.service;
 
 import java.util.Date;
@@ -5,12 +10,18 @@ import java.util.Date;
 import org.mifosplatform.infrastructure.core.service.ThreadLocalContextUtil;
 import org.mifosplatform.infrastructure.jobs.domain.ScheduledJobDetail;
 import org.mifosplatform.infrastructure.jobs.domain.ScheduledJobRunHistory;
+import org.mifosplatform.useradministration.domain.AppUser;
+import org.mifosplatform.useradministration.domain.AppUserRepositoryWrapper;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.JobListener;
 import org.quartz.Trigger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
+import org.springframework.security.core.authority.mapping.NullAuthoritiesMapper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,9 +39,15 @@ public class SchedulerJobListener implements JobListener {
 
     private final SchedularWritePlatformService schedularService;
 
+    private final AppUserRepositoryWrapper userRepository ;
+    
+    private final GrantedAuthoritiesMapper authoritiesMapper = new NullAuthoritiesMapper();
+    
     @Autowired
-    public SchedulerJobListener(final SchedularWritePlatformService schedularService) {
+    public SchedulerJobListener(final SchedularWritePlatformService schedularService,
+            final AppUserRepositoryWrapper userRepository) {
         this.schedularService = schedularService;
+        this.userRepository = userRepository ;
     }
 
     @Override
@@ -40,7 +57,10 @@ public class SchedulerJobListener implements JobListener {
 
     @Override
     public void jobToBeExecuted(@SuppressWarnings("unused") final JobExecutionContext context) {
-
+        AppUser user = this.userRepository.fetchSystemUser();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user, user.getPassword(),
+                authoritiesMapper.mapAuthorities(user.getAuthorities()));
+        SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
     @Override

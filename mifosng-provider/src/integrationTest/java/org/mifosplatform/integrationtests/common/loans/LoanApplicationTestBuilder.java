@@ -1,6 +1,13 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests.common.loans;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import com.google.gson.Gson;
 
@@ -15,7 +22,8 @@ public class LoanApplicationTestBuilder {
     private static final String EQUAL_PRINCIPAL_PAYMENTS = "0";
     private static final String EQUAL_INSTALLMENTS = "1";
     private static final String CALCULATION_PERIOD_SAME_AS_REPAYMENT_PERIOD = "1";
-    private static final String MIFOS_STANDARD_STRATEGY = "1";
+    public static final String MIFOS_STANDARD_STRATEGY = "1";
+    public static final String RBI_INDIA_STRATEGY = "4";
 
     private String principal = "10,000";
     private String loanTermFrequency = "";
@@ -28,21 +36,53 @@ public class LoanApplicationTestBuilder {
     private String interestType = FLAT_BALANCE;
     private String amortizationType = EQUAL_PRINCIPAL_PAYMENTS;
     private String interestCalculationPeriodType = CALCULATION_PERIOD_SAME_AS_REPAYMENT_PERIOD;
-    private final String transactionProcessingID = MIFOS_STANDARD_STRATEGY;
+    private String transactionProcessingID = MIFOS_STANDARD_STRATEGY;
     private String expectedDisbursmentDate = "";
     private String submittedOnDate = "";
     private String loanType = "individual";
+    private String fixedEmiAmount = "10000";
+    private String maxOutstandingLoanBalance = "36000";
+    private String graceOnPrincipalPayment = null;
+    private String graceOnInterestPayment = null;
+    @SuppressWarnings("rawtypes")
+    private List<HashMap> disbursementData = null;
+    @SuppressWarnings("rawtypes")
+    private List<HashMap> charges = new ArrayList<>();
+    private String recalculationRestFrequencyDate = null;
+    private String recalculationCompoundingFrequencyDate = null;
+    private String repaymentsStartingFromDate = null;
 
-    public String build(final String ID, final String loanProductId) {
+    private String calendarId;
+    private boolean syncDisbursementWithMeeting = false;
 
-        final HashMap<String, String> map = new HashMap<String, String>();
-        map.put("dateFormat", "dd MMMM yyyy");
-        map.put("locale", "en_GB");
+    public String build(final String clientID, final String groupID, final String loanProductId, final String savingsID) {
+        final HashMap<String, Object> map = new HashMap<>();
+        map.put("groupId", groupID);
+        map.put("clientId", clientID);
+        if (this.loanType == "jlg") {
+            if (this.calendarId != null) {
+                map.put("calendarId", this.calendarId);
+            }
+            map.put("syncDisbursementWithMeeting", this.syncDisbursementWithMeeting);
+        }
+        return build(map, loanProductId, savingsID);
+    }
+
+    public String build(final String ID, final String loanProductId, final String savingsID) {
+
+        final HashMap<String, Object> map = new HashMap<>();
+
         if (this.loanType == "group") {
             map.put("groupId", ID);
         } else {
             map.put("clientId", ID);
         }
+        return build(map, loanProductId, savingsID);
+    }
+
+    private String build(final HashMap<String, Object> map, final String loanProductId, final String savingsID) {
+        map.put("dateFormat", "dd MMMM yyyy");
+        map.put("locale", "en_GB");
         map.put("productId", loanProductId);
         map.put("principal", this.principal);
         map.put("loanTermFrequency", this.loanTermFrequency);
@@ -58,6 +98,38 @@ public class LoanApplicationTestBuilder {
         map.put("expectedDisbursementDate", this.expectedDisbursmentDate);
         map.put("submittedOnDate", this.submittedOnDate);
         map.put("loanType", this.loanType);
+        if (repaymentsStartingFromDate != null) {
+            map.put("repaymentsStartingFromDate", this.repaymentsStartingFromDate);
+        }
+        if (charges != null) {
+            map.put("charges", charges);
+        }
+        if (savingsID != null) {
+            map.put("linkAccountId", savingsID);
+        }
+
+        if (graceOnPrincipalPayment != null) {
+            map.put("graceOnPrincipalPayment", graceOnPrincipalPayment);
+        }
+
+        if (graceOnInterestPayment != null) {
+            map.put("graceOnInterestPayment", graceOnInterestPayment);
+        }
+
+        if (disbursementData != null) {
+            map.put("disbursementData", disbursementData);
+            map.put("fixedEmiAmount", fixedEmiAmount);
+            map.put("maxOutstandingLoanBalance", maxOutstandingLoanBalance);
+
+        }
+        if (recalculationRestFrequencyDate != null) {
+            map.put("recalculationRestFrequencyDate", recalculationRestFrequencyDate);
+        }
+        if (recalculationCompoundingFrequencyDate != null) {
+            map.put("recalculationCompoundingFrequencyDate", recalculationCompoundingFrequencyDate);
+        }
+
+        System.out.println("Loan Application request : " + map);
         return new Gson().toJson(map);
     }
 
@@ -116,6 +188,11 @@ public class LoanApplicationTestBuilder {
         return this;
     }
 
+    public LoanApplicationTestBuilder withRepaymentFrequencyTypeAsYear() {
+        this.repaymentFrequencyType = YEARS;
+        return this;
+    }
+
     public LoanApplicationTestBuilder withInterestRatePerPeriod(final String interestRate) {
         this.interestRate = interestRate;
         return this;
@@ -161,9 +238,80 @@ public class LoanApplicationTestBuilder {
         return this;
     }
 
+    public LoanApplicationTestBuilder withCharges(final List<HashMap> charges) {
+        this.charges = charges;
+        return this;
+    }
+
     public LoanApplicationTestBuilder withLoanType(final String loanType) {
         this.loanType = loanType;
         return this;
     }
 
+    public LoanApplicationTestBuilder withPrincipalGrace(final String graceOnPrincipalPayment) {
+        this.graceOnPrincipalPayment = graceOnPrincipalPayment;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withInterestGrace(final String graceOnInterestPayment) {
+        this.graceOnInterestPayment = graceOnInterestPayment;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withTranches(final List<HashMap> disbursementData) {
+        this.disbursementData = disbursementData;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withwithRepaymentStrategy(final String transactionProcessingStrategy) {
+        this.transactionProcessingID = transactionProcessingStrategy;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withRestFrequencyDate(final String recalculationRestFrequencyDate) {
+        this.recalculationRestFrequencyDate = recalculationRestFrequencyDate;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withCompoundingFrequencyDate(final String recalculationCompoundingFrequencyDate) {
+        this.recalculationCompoundingFrequencyDate = recalculationCompoundingFrequencyDate;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withFirstRepaymentDate(final String firstRepaymentDate) {
+        this.repaymentsStartingFromDate = firstRepaymentDate;
+        return this;
+    }
+
+    /**
+     * calendarID parameter is used to sync repayments with group meetings,
+     * especially when using jlg loans
+     *
+     * @param calendarId
+     *            the id of the calender record of the group meeting from
+     *            m_calendar table
+     * @return
+     */
+    public LoanApplicationTestBuilder withCalendarID(String calendarId) {
+        this.calendarId = calendarId;
+        return this;
+    }
+
+    /**
+     * This indicator is used mainly for jlg loans when we want to sync
+     * disbursement with the group meetings (it seems that if we do use this
+     * parameter we should also use calendarID to sync repayment with group
+     * meetings)
+     * 
+     * @return
+     */
+    public LoanApplicationTestBuilder withSyncDisbursementWithMeetin() {
+        this.syncDisbursementWithMeeting = true;
+        return this;
+    }
+
+    public LoanApplicationTestBuilder withFixedEmiAmount(final String installmentAmount) {
+        this.fixedEmiAmount = installmentAmount;
+        return this;
+    }
 }

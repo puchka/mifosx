@@ -21,8 +21,11 @@ public enum LoanTransactionType {
      */
     RECOVERY_REPAYMENT(8, "loanTransactionType.recoveryRepayment"), //
     WAIVE_CHARGES(9, "loanTransactionType.waiveCharges"), //
-    APPLY_CHARGES(10, "loanTransactionType.applyCharges"), //
-    APPLY_INTEREST(11, "loanTransactionType.applyInterest"),
+    /**
+     * Transaction represents an Accrual (For either interest, charge or a
+     * penalty
+     **/
+    ACCRUAL(10, "loanTransactionType.accrual"), //
 
     /***
      * A Loan Transfer involves two steps, first a "initiate" Loan transfer
@@ -32,9 +35,10 @@ public enum LoanTransactionType {
     INITIATE_TRANSFER(12, "loanTransactionType.initiateTransfer"), //
     APPROVE_TRANSFER(13, "loanTransactionType.approveTransfer"), //
     WITHDRAW_TRANSFER(14, "loanTransactionType.withdrawTransfer"), //
-    REJECT_TRANSFER(15, "loanTransactionType.rejectTransfer"),
-
-    REFUND(16, "loanTransactionType.refund"), CHARGE_PAYMENT(17, "loanTransactionType.chargePayment");
+    REJECT_TRANSFER(15, "loanTransactionType.rejectTransfer"), //
+    REFUND(16, "loanTransactionType.refund"), //
+    CHARGE_PAYMENT(17, "loanTransactionType.chargePayment"),  //
+    REFUND_FOR_ACTIVE_LOAN(18, "loanTransactionType.refund");
 
     private final Integer value;
     private final String code;
@@ -86,10 +90,7 @@ public enum LoanTransactionType {
                 loanTransactionType = LoanTransactionType.WAIVE_CHARGES;
             break;
             case 10:
-                loanTransactionType = LoanTransactionType.APPLY_CHARGES;
-            break;
-            case 11:
-                loanTransactionType = LoanTransactionType.APPLY_INTEREST;
+                loanTransactionType = LoanTransactionType.ACCRUAL;
             break;
             case 12:
                 loanTransactionType = LoanTransactionType.INITIATE_TRANSFER;
@@ -108,6 +109,9 @@ public enum LoanTransactionType {
             break;
             case 17:
                 loanTransactionType = LoanTransactionType.CHARGE_PAYMENT;
+            break;
+            case 18:
+                loanTransactionType = LoanTransactionType.REFUND_FOR_ACTIVE_LOAN;
             break;
             default:
                 loanTransactionType = LoanTransactionType.INVALID;
@@ -140,8 +144,8 @@ public enum LoanTransactionType {
         return this.value.equals(LoanTransactionType.WAIVE_CHARGES.getValue());
     }
 
-    public boolean isApplyCharges() {
-        return this.value.equals(LoanTransactionType.APPLY_CHARGES.getValue());
+    public boolean isAccrual() {
+        return this.value.equals(LoanTransactionType.ACCRUAL.getValue());
     }
 
     public boolean isWriteOff() {
@@ -150,5 +154,9 @@ public enum LoanTransactionType {
 
     public boolean isChargePayment() {
         return this.value.equals(LoanTransactionType.CHARGE_PAYMENT.getValue());
+    }
+    
+    public boolean isRefundForActiveLoan() {
+        return this.value.equals(LoanTransactionType.REFUND_FOR_ACTIVE_LOAN.getValue());
     }
 }

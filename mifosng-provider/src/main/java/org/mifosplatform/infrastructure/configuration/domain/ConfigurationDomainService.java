@@ -32,4 +32,22 @@ public interface ConfigurationDomainService {
     boolean isPasswordForcedResetEnable();
 
     Long retrievePasswordLiveTime();
+
+    Long retrieveGraceOnPenaltyPostingPeriod();
+
+    Long retrieveOpeningBalancesContraAccount();
+
+    boolean isSavingsInterestPostingAtCurrentPeriodEnd();
+
+    Integer retrieveFinancialYearBeginningMonth();
+
+    public Integer retrieveMinAllowedClientsInGroup();
+
+    public Integer retrieveMaxAllowedClientsInGroup();
+
+    boolean isMeetingMandatoryForJLGLoans();
+
+    int getRoundingMode();
+
+    boolean isBackdatePenaltiesEnabled();
 }

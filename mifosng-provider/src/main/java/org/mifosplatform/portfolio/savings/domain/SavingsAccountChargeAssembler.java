@@ -59,7 +59,7 @@ public class SavingsAccountChargeAssembler {
 
     public Set<SavingsAccountCharge> fromParsedJson(final JsonElement element, final String productCurrencyCode) {
 
-        final Set<SavingsAccountCharge> savingsAccountCharges = new HashSet<SavingsAccountCharge>();
+        final Set<SavingsAccountCharge> savingsAccountCharges = new HashSet<>();
 
         if (element.isJsonObject()) {
             final JsonObject topLevelJsonElement = element.getAsJsonObject();
@@ -130,12 +130,12 @@ public class SavingsAccountChargeAssembler {
 
     public Set<SavingsAccountCharge> fromSavingsProduct(final SavingsProduct savingsProduct) {
 
-        final Set<SavingsAccountCharge> savingsAccountCharges = new HashSet<SavingsAccountCharge>();
+        final Set<SavingsAccountCharge> savingsAccountCharges = new HashSet<>();
         Set<Charge> productCharges = savingsProduct.charges();
         for (Charge charge : productCharges) {
             ChargeTimeType chargeTime = null;
-            if (charge.getChargeTime() != null) {
-                chargeTime = ChargeTimeType.fromInt(charge.getChargeTime());
+            if (charge.getChargeTimeType() != null) {
+                chargeTime = ChargeTimeType.fromInt(charge.getChargeTimeType());
             }
             if (chargeTime != null && chargeTime.isOnSpecifiedDueDate()) {
                 continue;
@@ -154,7 +154,7 @@ public class SavingsAccountChargeAssembler {
     }
 
     private void validateSavingsCharges(final Set<SavingsAccountCharge> charges, final String productCurrencyCode) {
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(SAVINGS_ACCOUNT_RESOURCE_NAME);
         boolean isOneWithdrawalPresent = false;

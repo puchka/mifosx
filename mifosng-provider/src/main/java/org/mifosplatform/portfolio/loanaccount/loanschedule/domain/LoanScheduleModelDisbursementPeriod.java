@@ -94,4 +94,19 @@ public final class LoanScheduleModelDisbursementPeriod implements LoanScheduleMo
     public void addLoanCharges(@SuppressWarnings("unused") BigDecimal feeCharge, @SuppressWarnings("unused") BigDecimal penaltyCharge) {
         return;
     }
+
+    @Override
+    public boolean isRecalculatedInterestComponent() {
+        return false;
+    }
+
+    @Override
+    public void addPrincipalAmount(@SuppressWarnings("unused") Money principalDue) {
+        return;
+    }
+
+    @Override
+    public void addInterestAmount(@SuppressWarnings("unused") Money principalDue) {
+        return;
+    }
 }

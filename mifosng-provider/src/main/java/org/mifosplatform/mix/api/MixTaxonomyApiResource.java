@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.mix.api;
 
 import java.util.Arrays;
@@ -28,7 +33,7 @@ import org.springframework.stereotype.Component;
 @Scope("singleton")
 public class MixTaxonomyApiResource {
 
-    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("taxonomyId", "name", "namespace", "dimension",
+    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("taxonomyId", "name", "namespace", "dimension",
             "description"));
 
     private final PlatformSecurityContext context;

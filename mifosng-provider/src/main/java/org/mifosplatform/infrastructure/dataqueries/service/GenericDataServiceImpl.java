@@ -11,12 +11,15 @@ import java.util.List;
 import javax.sql.DataSource;
 
 import org.joda.time.LocalDate;
+import org.joda.time.LocalDateTime;
 import org.mifosplatform.infrastructure.core.service.RoutingDataSource;
 import org.mifosplatform.infrastructure.dataqueries.data.GenericResultsetData;
 import org.mifosplatform.infrastructure.dataqueries.data.ResultsetColumnHeaderData;
 import org.mifosplatform.infrastructure.dataqueries.data.ResultsetColumnValueData;
 import org.mifosplatform.infrastructure.dataqueries.data.ResultsetRowData;
 import org.mifosplatform.infrastructure.dataqueries.exception.DatatableNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
@@ -28,11 +31,13 @@ public class GenericDataServiceImpl implements GenericDataService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DataSource dataSource;
+    private final static Logger logger = LoggerFactory.getLogger(GenericDataServiceImpl.class);
 
     @Autowired
     public GenericDataServiceImpl(final RoutingDataSource dataSource) {
         this.dataSource = dataSource;
         this.jdbcTemplate = new JdbcTemplate(this.dataSource);
+
     }
 
     @Override
@@ -40,8 +45,8 @@ public class GenericDataServiceImpl implements GenericDataService {
 
         final SqlRowSet rs = this.jdbcTemplate.queryForRowSet(sql);
 
-        final List<ResultsetColumnHeaderData> columnHeaders = new ArrayList<ResultsetColumnHeaderData>();
-        final List<ResultsetRowData> resultsetDataRows = new ArrayList<ResultsetRowData>();
+        final List<ResultsetColumnHeaderData> columnHeaders = new ArrayList<>();
+        final List<ResultsetRowData> resultsetDataRows = new ArrayList<>();
 
         final SqlRowSetMetaData rsmd = rs.getMetaData();
 
@@ -55,7 +60,7 @@ public class GenericDataServiceImpl implements GenericDataService {
         }
 
         while (rs.next()) {
-            final List<String> columnValues = new ArrayList<String>();
+            final List<String> columnValues = new ArrayList<>();
             for (int i = 0; i < rsmd.getColumnCount(); i++) {
                 final String columnName = rsmd.getColumnName(i + 1);
                 final String columnValue = rs.getString(columnName);
@@ -143,8 +148,13 @@ public class GenericDataServiceImpl implements GenericDataService {
                             final LocalDate localDate = new LocalDate(currVal);
                             writer.append("[" + localDate.getYear() + ", " + localDate.getMonthOfYear() + ", " + localDate.getDayOfMonth()
                                     + "]");
+                        } else if (currColType.equals("DATETIME")) {
+                            final LocalDateTime localDateTime = new LocalDateTime(currVal);
+                            writer.append("[" + localDateTime.getYear() + ", " + localDateTime.getMonthOfYear() + ", "
+                                    + localDateTime.getDayOfMonth() + " " + localDateTime.getHourOfDay() + ", "
+                                    + localDateTime.getMinuteOfHour() + ", " + localDateTime.getSecondOfMinute() + ", "
+                                    + localDateTime.getMillisOfSecond() + "]");
                         } else {
-
                             writer.append(doubleQuote + replace(currVal, doubleQuote, slashDoubleQuote) + doubleQuote);
                         }
                     }
@@ -171,9 +181,11 @@ public class GenericDataServiceImpl implements GenericDataService {
     @Override
     public List<ResultsetColumnHeaderData> fillResultsetColumnHeaders(final String datatable) {
 
+        logger.debug("::3 Was inside the fill ResultSetColumnHeader");
+
         final SqlRowSet columnDefinitions = getDatatableMetaData(datatable);
 
-        final List<ResultsetColumnHeaderData> columnHeaders = new ArrayList<ResultsetColumnHeaderData>();
+        final List<ResultsetColumnHeaderData> columnHeaders = new ArrayList<>();
 
         columnDefinitions.beforeFirst();
         while (columnDefinitions.next()) {
@@ -186,16 +198,19 @@ public class GenericDataServiceImpl implements GenericDataService {
             final boolean columnNullable = "YES".equalsIgnoreCase(isNullable);
             final boolean columnIsPrimaryKey = "PRI".equalsIgnoreCase(isPrimaryKey);
 
-            List<ResultsetColumnValueData> columnValues = new ArrayList<ResultsetColumnValueData>();
+            List<ResultsetColumnValueData> columnValues = new ArrayList<>();
             String codeName = null;
             if ("varchar".equalsIgnoreCase(columnType)) {
+
                 final int codePosition = columnName.indexOf("_cv");
                 if (codePosition > 0) {
                     codeName = columnName.substring(0, codePosition);
+
                     columnValues = retreiveColumnValues(codeName);
                 }
 
             } else if ("int".equalsIgnoreCase(columnType)) {
+
                 final int codePosition = columnName.indexOf("_cd");
                 if (codePosition > 0) {
                     codeName = columnName.substring(0, codePosition);
@@ -228,9 +243,9 @@ public class GenericDataServiceImpl implements GenericDataService {
      */
     private List<ResultsetColumnValueData> retreiveColumnValues(final String codeName) {
 
-        final List<ResultsetColumnValueData> columnValues = new ArrayList<ResultsetColumnValueData>();
+        final List<ResultsetColumnValueData> columnValues = new ArrayList<>();
 
-        final String sql = "select v.id, v.code_value from m_code m " + " join m_code_value v on v.code_id = m.id "
+        final String sql = "select v.id, v.code_score, v.code_value from m_code m " + " join m_code_value v on v.code_id = m.id "
                 + " where m.code_name = '" + codeName + "' order by v.order_position, v.id";
 
         final SqlRowSet rsValues = this.jdbcTemplate.queryForRowSet(sql);
@@ -239,8 +254,9 @@ public class GenericDataServiceImpl implements GenericDataService {
         while (rsValues.next()) {
             final Integer id = rsValues.getInt("id");
             final String codeValue = rsValues.getString("code_value");
+            final Integer score = rsValues.getInt("code_score");
 
-            columnValues.add(new ResultsetColumnValueData(id, codeValue));
+            columnValues.add(new ResultsetColumnValueData(id, codeValue, score));
         }
 
         return columnValues;
@@ -248,7 +264,7 @@ public class GenericDataServiceImpl implements GenericDataService {
 
     private List<ResultsetColumnValueData> retreiveColumnValues(final Integer codeId) {
 
-        final List<ResultsetColumnValueData> columnValues = new ArrayList<ResultsetColumnValueData>();
+        final List<ResultsetColumnValueData> columnValues = new ArrayList<>();
         if (codeId != null) {
             final String sql = "select v.id, v.code_value from m_code_value v where v.code_id =" + codeId
                     + " order by v.order_position, v.id";

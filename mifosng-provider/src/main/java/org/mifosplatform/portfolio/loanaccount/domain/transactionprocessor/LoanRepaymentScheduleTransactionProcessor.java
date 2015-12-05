@@ -10,6 +10,7 @@ import java.util.Set;
 
 import org.joda.time.LocalDate;
 import org.mifosplatform.organisation.monetary.domain.MonetaryCurrency;
+import org.mifosplatform.organisation.monetary.domain.Money;
 import org.mifosplatform.portfolio.loanaccount.domain.ChangedTransactionDetail;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanCharge;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
@@ -25,5 +26,21 @@ public interface LoanRepaymentScheduleTransactionProcessor {
 
     void handleWriteOff(LoanTransaction loanTransaction, MonetaryCurrency loanCurrency,
             List<LoanRepaymentScheduleInstallment> repaymentScheduleInstallments);
+
+    Money handleRepaymentSchedule(List<LoanTransaction> transactionsPostDisbursement, MonetaryCurrency currency,
+            List<LoanRepaymentScheduleInstallment> installments);
+
+    /**
+     * Used in interest recalculation to introduce new interest only
+     * installment.
+     */
+    boolean isInterestFirstRepaymentScheduleTransactionProcessor();
+
+    ChangedTransactionDetail populateDerivedFeildsWithoutReprocess(LocalDate disbursementDate,
+            List<LoanTransaction> transactionsPostDisbursement, MonetaryCurrency currency,
+            List<LoanRepaymentScheduleInstallment> installments, Set<LoanCharge> charges);
+
+    void handleRefund(LoanTransaction loanTransaction, MonetaryCurrency currency, List<LoanRepaymentScheduleInstallment> installments,
+            final Set<LoanCharge> charges);
 
 }

@@ -12,13 +12,14 @@ import org.mifosplatform.accounting.common.AccountingConstants.CASH_ACCOUNTS_FOR
 import org.mifosplatform.accounting.common.AccountingConstants.SAVINGS_PRODUCT_ACCOUNTING_PARAMS;
 import org.mifosplatform.accounting.common.AccountingRuleType;
 import org.mifosplatform.accounting.glaccount.domain.GLAccountRepository;
+import org.mifosplatform.accounting.glaccount.domain.GLAccountRepositoryWrapper;
 import org.mifosplatform.accounting.glaccount.domain.GLAccountType;
 import org.mifosplatform.accounting.producttoaccountmapping.domain.PortfolioProductType;
 import org.mifosplatform.accounting.producttoaccountmapping.domain.ProductToGLAccountMappingRepository;
-import org.mifosplatform.infrastructure.codes.domain.CodeValueRepositoryWrapper;
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.serialization.FromJsonHelper;
 import org.mifosplatform.portfolio.charge.domain.ChargeRepositoryWrapper;
+import org.mifosplatform.portfolio.paymenttype.domain.PaymentTypeRepositoryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +31,10 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
     @Autowired
     public SavingsProductToGLAccountMappingHelper(final GLAccountRepository glAccountRepository,
             final ProductToGLAccountMappingRepository glAccountMappingRepository, final FromJsonHelper fromApiJsonHelper,
-            final CodeValueRepositoryWrapper codeValueRepositoryWrapper, final ChargeRepositoryWrapper chargeRepositoryWrapper) {
-        super(glAccountRepository, glAccountMappingRepository, fromApiJsonHelper, codeValueRepositoryWrapper, chargeRepositoryWrapper);
+            final ChargeRepositoryWrapper chargeRepositoryWrapper, final GLAccountRepositoryWrapper accountRepositoryWrapper,
+            final PaymentTypeRepositoryWrapper paymentTypeRepositoryWrapper) {
+        super(glAccountRepository, glAccountMappingRepository, fromApiJsonHelper, chargeRepositoryWrapper, accountRepositoryWrapper,
+                paymentTypeRepositoryWrapper);
     }
 
     /*** Set of abstractions for saving Saving Products to GL Account Mappings ***/
@@ -97,8 +100,8 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
     public void saveChargesToIncomeAccountMappings(final JsonCommand command, final JsonElement element, final Long productId,
             final Map<String, Object> changes) {
         // save both fee and penalty charges
-        saveChargesToIncomeAccountMappings(command, element, productId, changes, PortfolioProductType.SAVING, true);
-        saveChargesToIncomeAccountMappings(command, element, productId, changes, PortfolioProductType.SAVING, false);
+        saveChargesToIncomeOrLiabilityAccountMappings(command, element, productId, changes, PortfolioProductType.SAVING, true);
+        saveChargesToIncomeOrLiabilityAccountMappings(command, element, productId, changes, PortfolioProductType.SAVING, false);
     }
 
     public void updateChargesToIncomeAccountMappings(final JsonCommand command, final JsonElement element, final Long productId,
@@ -110,7 +113,7 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
 
     public Map<String, Object> populateChangesForNewSavingsProductToGLAccountMappingCreation(final JsonElement element,
             final AccountingRuleType accountingRuleType) {
-        final Map<String, Object> changes = new HashMap<String, Object>();
+        final Map<String, Object> changes = new HashMap<>();
 
         final Long savingsReferenceId = this.fromApiJsonHelper.extractLongNamed(
                 SAVINGS_PRODUCT_ACCOUNTING_PARAMS.SAVINGS_REFERENCE.getValue(), element);
@@ -124,10 +127,10 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
                 element);
         final Long transfersInSuspenseAccountId = this.fromApiJsonHelper.extractLongNamed(
                 SAVINGS_PRODUCT_ACCOUNTING_PARAMS.TRANSFERS_SUSPENSE.getValue(), element);
-        final Long overdraftControlId = this.fromApiJsonHelper.extractLongNamed(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(),
-                element);
-        final Long incomeFromInterest = this.fromApiJsonHelper.extractLongNamed(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue(),
-                element);
+        final Long overdraftControlId = this.fromApiJsonHelper.extractLongNamed(
+                SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(), element);
+        final Long incomeFromInterest = this.fromApiJsonHelper.extractLongNamed(
+                SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue(), element);
         final Long writeOffId = this.fromApiJsonHelper.extractLongNamed(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue(),
                 element);
         switch (accountingRuleType) {
@@ -144,7 +147,11 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
                 changes.put(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue(), incomeFromInterest);
                 changes.put(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue(), writeOffId);
             break;
-            case ACCRUAL_BASED:
+            case ACCRUAL_PERIODIC:
+            break;
+            case ACCRUAL_UPFRONT:
+            break;
+            default:
             break;
         }
         return changes;
@@ -169,7 +176,7 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
                 mergeSavingsToAssetAccountMappingChanges(element, SAVINGS_PRODUCT_ACCOUNTING_PARAMS.SAVINGS_REFERENCE.getValue(),
                         savingsProductId, CASH_ACCOUNTS_FOR_SAVINGS.SAVINGS_REFERENCE.getValue(),
                         CASH_ACCOUNTS_FOR_SAVINGS.SAVINGS_REFERENCE.toString(), changes);
-                
+
                 mergeSavingsToAssetAccountMappingChanges(element, SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(),
                         savingsProductId, CASH_ACCOUNTS_FOR_SAVINGS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(),
                         CASH_ACCOUNTS_FOR_SAVINGS.OVERDRAFT_PORTFOLIO_CONTROL.toString(), changes);
@@ -203,7 +210,11 @@ public class SavingsProductToGLAccountMappingHelper extends ProductToGLAccountMa
                         savingsProductId, CASH_ACCOUNTS_FOR_SAVINGS.TRANSFERS_SUSPENSE.getValue(),
                         CASH_ACCOUNTS_FOR_SAVINGS.TRANSFERS_SUSPENSE.toString(), changes);
             break;
-            case ACCRUAL_BASED:
+            case ACCRUAL_PERIODIC:
+            break;
+            case ACCRUAL_UPFRONT:
+            break;
+            default:
             break;
         }
     }

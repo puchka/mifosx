@@ -59,7 +59,7 @@ public class RunreportsApiResource {
     @GET
     @Path("{reportName}")
     @Consumes({ MediaType.APPLICATION_JSON })
-    @Produces({ MediaType.APPLICATION_JSON, "application/x-msdownload", "application/vnd.ms-excel", "application/pdf", "text/html" })
+    @Produces({ MediaType.APPLICATION_JSON, "text/csv", "application/vnd.ms-excel", "application/pdf", "text/html" })
     public Response runReport(@PathParam("reportName") final String reportName, @Context final UriInfo uriInfo) {
 
         final MultivaluedMap<String, String> queryParams = uriInfo.getQueryParameters();
@@ -128,7 +128,7 @@ public class RunreportsApiResource {
         final StreamingOutput result = this.readExtraDataAndReportingService
                 .retrieveReportCSV(reportName, parameterTypeValue, reportParams);
 
-        return Response.ok().entity(result).type("application/x-msdownload")
+        return Response.ok().entity(result).type("text/csv")
                 .header("Content-Disposition", "attachment;filename=" + reportName.replaceAll(" ", "") + ".csv").build();
     }
 
@@ -145,7 +145,7 @@ public class RunreportsApiResource {
 
     private Map<String, String> getReportParams(final MultivaluedMap<String, String> queryParams, final Boolean isPentaho) {
 
-        final Map<String, String> reportParams = new HashMap<String, String>();
+        final Map<String, String> reportParams = new HashMap<>();
         final Set<String> keys = queryParams.keySet();
         String pKey;
         String pValue;

@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests;
 
 import java.util.HashMap;
@@ -37,7 +42,7 @@ public class LoanWithdrawnByApplicantIntegrationTest {
     @Test
     public void loanWithdrawnByApplicant() {
         final Integer clientID = ClientHelper.createClient(this.requestSpec, this.responseSpec, "01 January 2012");
-        final Integer loanProductID = this.loanTransactionHelper.getLoanProductId(new LoanProductTestBuilder().build());
+        final Integer loanProductID = this.loanTransactionHelper.getLoanProductId(new LoanProductTestBuilder().build(null));
         final Integer loanID = applyForLoanApplication(clientID, loanProductID);
 
         HashMap loanStatusHashMap = LoanStatusChecker.getStatusOfLoan(this.requestSpec, this.responseSpec, loanID);
@@ -53,7 +58,7 @@ public class LoanWithdrawnByApplicantIntegrationTest {
         final String loanApplication = new LoanApplicationTestBuilder().withPrincipal("5000").withLoanTermFrequency("5")
                 .withLoanTermFrequencyAsMonths().withNumberOfRepayments("5").withRepaymentEveryAfter("1")
                 .withRepaymentFrequencyTypeAsMonths().withInterestRatePerPeriod("2").withExpectedDisbursementDate("04 April 2012")
-                .withSubmittedOnDate("02 April 2012").build(clientID.toString(), loanProductID.toString());
+                .withSubmittedOnDate("02 April 2012").build(clientID.toString(), loanProductID.toString(), null);
         return this.loanTransactionHelper.getLoanId(loanApplication);
     }
 }

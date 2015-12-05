@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.infrastructure.cache.service;
 
 import java.util.Arrays;
@@ -71,7 +76,7 @@ public class RuntimeDelegatingCacheManager implements CacheManager {
 
     public Map<String, Object> switchToCache(final boolean ehcacheEnabled, final CacheType toCacheType) {
 
-        final Map<String, Object> changes = new HashMap<String, Object>();
+        final Map<String, Object> changes = new HashMap<>();
 
         final boolean noCacheEnabled = !ehcacheEnabled;
         final boolean distributedCacheEnabled = !ehcacheEnabled;

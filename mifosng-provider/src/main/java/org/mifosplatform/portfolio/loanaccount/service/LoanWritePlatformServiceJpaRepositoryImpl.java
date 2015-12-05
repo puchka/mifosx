@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +31,7 @@ import org.mifosplatform.infrastructure.core.data.DataValidatorBuilder;
 import org.mifosplatform.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.mifosplatform.infrastructure.core.exception.PlatformServiceUnavailableException;
 import org.mifosplatform.infrastructure.core.serialization.FromJsonHelper;
+import org.mifosplatform.infrastructure.core.service.DateUtils;
 import org.mifosplatform.infrastructure.jobs.annotation.CronTarget;
 import org.mifosplatform.infrastructure.jobs.exception.JobExecutionException;
 import org.mifosplatform.infrastructure.jobs.service.JobName;
@@ -47,8 +49,19 @@ import org.mifosplatform.organisation.workingdays.domain.WorkingDaysRepositoryWr
 import org.mifosplatform.portfolio.account.PortfolioAccountType;
 import org.mifosplatform.portfolio.account.data.AccountTransferDTO;
 import org.mifosplatform.portfolio.account.data.PortfolioAccountData;
-import org.mifosplatform.portfolio.account.domain.AccountTransfer;
+import org.mifosplatform.portfolio.account.domain.AccountAssociationType;
+import org.mifosplatform.portfolio.account.domain.AccountAssociations;
+import org.mifosplatform.portfolio.account.domain.AccountAssociationsRepository;
+import org.mifosplatform.portfolio.account.domain.AccountTransferDetailRepository;
+import org.mifosplatform.portfolio.account.domain.AccountTransferDetails;
+import org.mifosplatform.portfolio.account.domain.AccountTransferRecurrenceType;
 import org.mifosplatform.portfolio.account.domain.AccountTransferRepository;
+import org.mifosplatform.portfolio.account.domain.AccountTransferStandingInstruction;
+import org.mifosplatform.portfolio.account.domain.AccountTransferTransaction;
+import org.mifosplatform.portfolio.account.domain.AccountTransferType;
+import org.mifosplatform.portfolio.account.domain.StandingInstructionPriority;
+import org.mifosplatform.portfolio.account.domain.StandingInstructionStatus;
+import org.mifosplatform.portfolio.account.domain.StandingInstructionType;
 import org.mifosplatform.portfolio.account.service.AccountAssociationsReadPlatformService;
 import org.mifosplatform.portfolio.account.service.AccountTransfersReadPlatformService;
 import org.mifosplatform.portfolio.account.service.AccountTransfersWritePlatformService;
@@ -57,10 +70,14 @@ import org.mifosplatform.portfolio.calendar.domain.Calendar;
 import org.mifosplatform.portfolio.calendar.domain.CalendarEntityType;
 import org.mifosplatform.portfolio.calendar.domain.CalendarInstance;
 import org.mifosplatform.portfolio.calendar.domain.CalendarInstanceRepository;
-import org.mifosplatform.portfolio.calendar.service.CalendarUtils;
+import org.mifosplatform.portfolio.calendar.domain.CalendarRepository;
+import org.mifosplatform.portfolio.calendar.domain.CalendarType;
+import org.mifosplatform.portfolio.calendar.exception.CalendarParameterUpdateNotSupportedException;
 import org.mifosplatform.portfolio.charge.domain.Charge;
 import org.mifosplatform.portfolio.charge.domain.ChargePaymentMode;
 import org.mifosplatform.portfolio.charge.domain.ChargeRepositoryWrapper;
+import org.mifosplatform.portfolio.charge.exception.ChargeCannotBeUpdatedException;
+import org.mifosplatform.portfolio.charge.exception.LoanChargeCannotBeAddedException;
 import org.mifosplatform.portfolio.charge.exception.LoanChargeCannotBeDeletedException;
 import org.mifosplatform.portfolio.charge.exception.LoanChargeCannotBeDeletedException.LOAN_CHARGE_CANNOT_BE_DELETED_REASON;
 import org.mifosplatform.portfolio.charge.exception.LoanChargeCannotBePayedException;
@@ -76,11 +93,23 @@ import org.mifosplatform.portfolio.collectionsheet.command.CollectionSheetBulkDi
 import org.mifosplatform.portfolio.collectionsheet.command.CollectionSheetBulkRepaymentCommand;
 import org.mifosplatform.portfolio.collectionsheet.command.SingleDisbursalCommand;
 import org.mifosplatform.portfolio.collectionsheet.command.SingleRepaymentCommand;
+import org.mifosplatform.portfolio.common.BusinessEventNotificationConstants.BUSINESS_ENTITY;
+import org.mifosplatform.portfolio.common.BusinessEventNotificationConstants.BUSINESS_EVENTS;
+import org.mifosplatform.portfolio.common.domain.PeriodFrequencyType;
+import org.mifosplatform.portfolio.common.service.BusinessEventNotifierService;
+import org.mifosplatform.portfolio.floatingrates.data.FloatingRateDTO;
+import org.mifosplatform.portfolio.floatingrates.data.FloatingRatePeriodData;
+import org.mifosplatform.portfolio.floatingrates.exception.FloatingRateNotFoundException;
+import org.mifosplatform.portfolio.floatingrates.service.FloatingRatesReadPlatformService;
 import org.mifosplatform.portfolio.group.domain.Group;
 import org.mifosplatform.portfolio.group.exception.GroupNotActiveException;
+import org.mifosplatform.portfolio.loanaccount.api.LoanApiConstants;
 import org.mifosplatform.portfolio.loanaccount.command.LoanUpdateCommand;
+import org.mifosplatform.portfolio.loanaccount.data.HolidayDetailDTO;
 import org.mifosplatform.portfolio.loanaccount.data.LoanChargeData;
+import org.mifosplatform.portfolio.loanaccount.data.LoanChargePaidByData;
 import org.mifosplatform.portfolio.loanaccount.data.LoanInstallmentChargeData;
+import org.mifosplatform.portfolio.loanaccount.data.ScheduleGeneratorDTO;
 import org.mifosplatform.portfolio.loanaccount.domain.ChangedTransactionDetail;
 import org.mifosplatform.portfolio.loanaccount.domain.DefaultLoanLifecycleStateMachine;
 import org.mifosplatform.portfolio.loanaccount.domain.Loan;
@@ -88,23 +117,39 @@ import org.mifosplatform.portfolio.loanaccount.domain.LoanAccountDomainService;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanCharge;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanChargeRepository;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanDisbursementDetails;
+import org.mifosplatform.portfolio.loanaccount.domain.LoanEvent;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanInstallmentCharge;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanLifecycleStateMachine;
+import org.mifosplatform.portfolio.loanaccount.domain.LoanOverdueInstallmentCharge;
+import org.mifosplatform.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallment;
+import org.mifosplatform.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallmentRepository;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanRepository;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanStatus;
+import org.mifosplatform.portfolio.loanaccount.domain.LoanTrancheDisbursementCharge;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanTransaction;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanTransactionRepository;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanTransactionType;
+import org.mifosplatform.portfolio.loanaccount.exception.ExceedingTrancheCountException;
+import org.mifosplatform.portfolio.loanaccount.exception.InvalidPaidInAdvanceAmountException;
 import org.mifosplatform.portfolio.loanaccount.exception.LoanDisbursalException;
+import org.mifosplatform.portfolio.loanaccount.exception.LoanMultiDisbursementException;
 import org.mifosplatform.portfolio.loanaccount.exception.LoanOfficerAssignmentException;
 import org.mifosplatform.portfolio.loanaccount.exception.LoanOfficerUnassignmentException;
 import org.mifosplatform.portfolio.loanaccount.exception.LoanTransactionNotFoundException;
+import org.mifosplatform.portfolio.loanaccount.exception.MultiDisbursementDataRequiredException;
+import org.mifosplatform.portfolio.loanaccount.guarantor.service.GuarantorDomainService;
 import org.mifosplatform.portfolio.loanaccount.loanschedule.data.OverdueLoanScheduleData;
+import org.mifosplatform.portfolio.loanaccount.loanschedule.domain.DefaultScheduledDateGenerator;
 import org.mifosplatform.portfolio.loanaccount.loanschedule.domain.LoanScheduleGeneratorFactory;
+import org.mifosplatform.portfolio.loanaccount.loanschedule.domain.LoanScheduleModel;
+import org.mifosplatform.portfolio.loanaccount.loanschedule.domain.LoanScheduleModelPeriod;
+import org.mifosplatform.portfolio.loanaccount.loanschedule.domain.ScheduledDateGenerator;
+import org.mifosplatform.portfolio.loanaccount.loanschedule.service.LoanScheduleHistoryWritePlatformService;
+import org.mifosplatform.portfolio.loanaccount.serialization.LoanApplicationCommandFromApiJsonHelper;
 import org.mifosplatform.portfolio.loanaccount.serialization.LoanEventApiJsonValidator;
 import org.mifosplatform.portfolio.loanaccount.serialization.LoanUpdateCommandFromApiJsonDeserializer;
+import org.mifosplatform.portfolio.loanproduct.data.LoanOverdueDTO;
 import org.mifosplatform.portfolio.loanproduct.data.LoanProductData;
-import org.mifosplatform.portfolio.loanproduct.domain.LoanProductRelatedDetail;
 import org.mifosplatform.portfolio.loanproduct.exception.InvalidCurrencyException;
 import org.mifosplatform.portfolio.loanproduct.exception.LinkedAccountRequiredException;
 import org.mifosplatform.portfolio.loanproduct.service.LoanProductReadPlatformService;
@@ -112,6 +157,7 @@ import org.mifosplatform.portfolio.note.domain.Note;
 import org.mifosplatform.portfolio.note.domain.NoteRepository;
 import org.mifosplatform.portfolio.paymentdetail.domain.PaymentDetail;
 import org.mifosplatform.portfolio.paymentdetail.service.PaymentDetailWritePlatformService;
+import org.mifosplatform.portfolio.savings.domain.SavingsAccount;
 import org.mifosplatform.portfolio.savings.exception.InsufficientAccountBalanceException;
 import org.mifosplatform.useradministration.domain.AppUser;
 import org.slf4j.Logger;
@@ -122,6 +168,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
 @Service
@@ -151,10 +198,19 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     private final AccountTransfersWritePlatformService accountTransfersWritePlatformService;
     private final AccountTransfersReadPlatformService accountTransfersReadPlatformService;
     private final AccountAssociationsReadPlatformService accountAssociationsReadPlatformService;
-    private final LoanChargeReadPlatformService LoanChargeReadPlatformService;
+    private final LoanChargeReadPlatformService loanChargeReadPlatformService;
     private final LoanReadPlatformService loanReadPlatformService;
     private final FromJsonHelper fromApiJsonHelper;
     private final AccountTransferRepository accountTransferRepository;
+    private final CalendarRepository calendarRepository;
+    private final LoanRepaymentScheduleInstallmentRepository repaymentScheduleInstallmentRepository;
+    private final LoanScheduleHistoryWritePlatformService loanScheduleHistoryWritePlatformService;
+    private final LoanApplicationCommandFromApiJsonHelper loanApplicationCommandFromApiJsonHelper;
+    private final AccountAssociationsRepository accountAssociationRepository;
+    private final AccountTransferDetailRepository accountTransferDetailRepository;
+    private final BusinessEventNotifierService businessEventNotifierService;
+    private final GuarantorDomainService guarantorDomainService;
+    private final FloatingRatesReadPlatformService floatingRatesReadPlatformService;
 
     @Autowired
     public LoanWritePlatformServiceJpaRepositoryImpl(final PlatformSecurityContext context,
@@ -173,7 +229,15 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final AccountTransfersReadPlatformService accountTransfersReadPlatformService,
             final AccountAssociationsReadPlatformService accountAssociationsReadPlatformService,
             final LoanChargeReadPlatformService loanChargeReadPlatformService, final LoanReadPlatformService loanReadPlatformService,
-            final FromJsonHelper fromApiJsonHelper, final AccountTransferRepository accountTransferRepository) {
+            final FromJsonHelper fromApiJsonHelper, final AccountTransferRepository accountTransferRepository,
+            final CalendarRepository calendarRepository,
+            final LoanRepaymentScheduleInstallmentRepository repaymentScheduleInstallmentRepository,
+            final LoanScheduleHistoryWritePlatformService loanScheduleHistoryWritePlatformService,
+            final LoanApplicationCommandFromApiJsonHelper loanApplicationCommandFromApiJsonHelper,
+            final AccountAssociationsRepository accountAssociationRepository,
+            final AccountTransferDetailRepository accountTransferDetailRepository,
+            final BusinessEventNotifierService businessEventNotifierService, final GuarantorDomainService guarantorDomainService,
+            final FloatingRatesReadPlatformService floatingRatesReadPlatformService) {
         this.context = context;
         this.loanEventApiJsonValidator = loanEventApiJsonValidator;
         this.loanAssembler = loanAssembler;
@@ -196,10 +260,19 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         this.accountTransfersWritePlatformService = accountTransfersWritePlatformService;
         this.accountTransfersReadPlatformService = accountTransfersReadPlatformService;
         this.accountAssociationsReadPlatformService = accountAssociationsReadPlatformService;
-        this.LoanChargeReadPlatformService = loanChargeReadPlatformService;
+        this.loanChargeReadPlatformService = loanChargeReadPlatformService;
         this.loanReadPlatformService = loanReadPlatformService;
         this.fromApiJsonHelper = fromApiJsonHelper;
         this.accountTransferRepository = accountTransferRepository;
+        this.calendarRepository = calendarRepository;
+        this.repaymentScheduleInstallmentRepository = repaymentScheduleInstallmentRepository;
+        this.loanScheduleHistoryWritePlatformService = loanScheduleHistoryWritePlatformService;
+        this.loanApplicationCommandFromApiJsonHelper = loanApplicationCommandFromApiJsonHelper;
+        this.accountAssociationRepository = accountAssociationRepository;
+        this.accountTransferDetailRepository = accountTransferDetailRepository;
+        this.businessEventNotifierService = businessEventNotifierService;
+        this.guarantorDomainService = guarantorDomainService;
+        this.floatingRatesReadPlatformService = floatingRatesReadPlatformService;
     }
 
     private LoanLifecycleStateMachine defaultLoanLifecycleStateMachine() {
@@ -209,11 +282,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     @Transactional
     @Override
-    public CommandProcessingResult disburseLoan(final Long loanId, final JsonCommand command) {
+    public CommandProcessingResult disburseLoan(final Long loanId, final JsonCommand command, Boolean isAccountTransfer) {
 
-        final AppUser currentUser = this.context.authenticatedUser();
+        final AppUser currentUser = getAppUserIfPresent();
 
-        this.loanEventApiJsonValidator.validateDisbursement(command.json());
+        this.loanEventApiJsonValidator.validateDisbursement(command.json(), isAccountTransfer);
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
@@ -222,7 +295,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         checkForProductMixRestrictions(loan);
 
         // validate actual disbursement date against meeting date
-        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByLoanId(loan.getId(),
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
                 CalendarEntityType.LOANS.getValue());
         if (loan.isSyncDisbursementWithMeeting()) {
 
@@ -230,20 +303,23 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             this.loanEventApiJsonValidator.validateDisbursementDateWithMeetingDate(actualDisbursementDate, calendarInstance);
         }
 
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_DISBURSAL,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
 
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
         // Recalculate first repayment date based in actual disbursement date.
         final LocalDate actualDisbursementDate = command.localDateValueOfParameterNamed("actualDisbursementDate");
-        final LocalDate calculatedRepaymentsStartingFromDate = getCalculatedRepaymentsStartingFromDate(actualDisbursementDate, loan,
-                calendarInstance);
+        final LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                actualDisbursementDate, loan, calendarInstance);
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(),
                 actualDisbursementDate.toDate());
@@ -251,47 +327,61 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final boolean allowTransactionsOnHoliday = this.configurationDomainService.allowTransactionsOnHolidayEnabled();
         final boolean allowTransactionsOnNonWorkingDay = this.configurationDomainService.allowTransactionsOnNonWorkingDayEnabled();
         updateLoanCounters(loan, actualDisbursementDate);
-
-        loan.disburse(this.loanScheduleFactory, currentUser, command, applicationCurrency, existingTransactionIds,
-                existingReversedTransactionIds, changes, paymentDetail, calculatedRepaymentsStartingFromDate, isHolidayEnabled, holidays,
-                workingDays, allowTransactionsOnHoliday, allowTransactionsOnNonWorkingDay);
-
-        if (!changes.isEmpty()) {
-            try {
-                this.loanRepository.saveAndFlush(loan);
-            } catch (final DataIntegrityViolationException e) {
-                final Throwable realCause = e.getCause();
-                final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
-                final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan.transaction");
-                if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
-                    baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
-                }
-                if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(
-                        "validation.msg.validation.errors.exist", "Validation errors exist.", dataValidationErrors); }
+        Money amountBeforeAdjust = loan.getPrincpal();
+        loan.validateAccountStatus(LoanEvent.LOAN_DISBURSED);
+        boolean canDisburse = loan.canDisburse(actualDisbursementDate);
+        ChangedTransactionDetail changedTransactionDetail = null;
+        if (canDisburse) {
+            Money disburseAmount = loan.adjustDisburseAmount(command, actualDisbursementDate);
+            boolean recalculateSchedule = amountBeforeAdjust.isNotEqualTo(loan.getPrincpal());
+            final String txnExternalId = command.stringValueOfParameterNamedAllowingNull("externalId");
+            if (isAccountTransfer) {
+                disburseLoanToSavings(loan, command, disburseAmount, paymentDetail);
+                existingTransactionIds.addAll(loan.findExistingTransactionIds());
+                existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
+            } else {
+                existingTransactionIds.addAll(loan.findExistingTransactionIds());
+                existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
+                LoanTransaction disbursementTransaction = LoanTransaction.disbursement(loan.getOffice(), disburseAmount, paymentDetail,
+                        actualDisbursementDate, txnExternalId, DateUtils.getLocalDateTimeOfTenant(), currentUser);
+                disbursementTransaction.updateLoan(loan);
+                loan.getLoanTransactions().add(disbursementTransaction);
             }
+
+            CalendarInstance restCalendarInstance = null;
+            CalendarInstance compoundingCalendarInstance = null;
+            LocalDate recalculateFrom = null;
+            Long overdurPenaltyWaitPeriod = null;
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                        CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+                compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                        loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+                overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+            }
+            HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays, allowTransactionsOnHoliday,
+                    allowTransactionsOnNonWorkingDay);
+            FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+            ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                    calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance,
+                    recalculateFrom, overdurPenaltyWaitPeriod, floatingRateDTO);
+
+            regenerateScheduleOnDisbursement(command, loan, recalculateSchedule, scheduleGeneratorDTO);
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                this.loanScheduleHistoryWritePlatformService.createAndSaveLoanScheduleArchive(loan.fetchRepaymentScheduleInstallments(),
+                        loan, null);
+            }
+
+            changedTransactionDetail = loan.disburse(currentUser, command, changes, scheduleGeneratorDTO);
+        }
+        if (!changes.isEmpty()) {
+            saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
 
             final String noteText = command.stringValueOfParameterNamed("note");
             if (StringUtils.isNotBlank(noteText)) {
                 final Note note = Note.loanNote(loan, noteText);
                 this.noteRepository.save(note);
-            }
-
-            // fix me
-            // adding loan installment charges along with the actual
-            // disbursement, is trying to add 2 extra entries with null values.
-            // which is causing issues
-            ChangedTransactionDetail changedTransactionDetail = loan.reprocessTransactionForDisbursement();
-            try {
-                this.loanRepository.saveAndFlush(loan);
-            } catch (final DataIntegrityViolationException e) {
-                final Throwable realCause = e.getCause();
-                final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
-                final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan.transaction");
-                if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
-                    baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
-                }
-                if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(
-                        "validation.msg.validation.errors.exist", "Validation errors exist.", dataValidationErrors); }
             }
 
             if (changedTransactionDetail != null) {
@@ -301,11 +391,15 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 }
             }
 
+            // auto create standing instruction
+            createStandingInstruction(loan);
+
             postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+
         }
 
         final Set<LoanCharge> loanCharges = loan.charges();
-        final Map<Long, BigDecimal> disBuLoanCharges = new HashMap<Long, BigDecimal>();
+        final Map<Long, BigDecimal> disBuLoanCharges = new HashMap<>();
         for (final LoanCharge loanCharge : loanCharges) {
             if (loanCharge.isDueAtDisbursement() && loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()
                     && loanCharge.isNotFullyPaid() && !loanCharge.isWaived()) {
@@ -316,13 +410,22 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final Locale locale = command.extractLocale();
         final DateTimeFormatter fmt = DateTimeFormat.forPattern(command.dateFormat()).withLocale(locale);
         for (final Map.Entry<Long, BigDecimal> entrySet : disBuLoanCharges.entrySet()) {
-            final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(loanId);
+            final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loanId);
+            final SavingsAccount fromSavingsAccount = null;
+            final boolean isRegularTransaction = true;
+            final boolean isExceptionForBalanceCheck = false;
             final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(actualDisbursementDate, entrySet.getValue(),
                     PortfolioAccountType.SAVINGS, PortfolioAccountType.LOAN, savingAccountData.accountId(), loanId, "Loan Charge Payment",
-                    locale, fmt, null, null, LoanTransactionType.REPAYMENT_AT_DISBURSEMENT.getValue(), entrySet.getKey(), null);
+                    locale, fmt, null, null, LoanTransactionType.REPAYMENT_AT_DISBURSEMENT.getValue(), entrySet.getKey(), null,
+                    AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, null, null, null, fromSavingsAccount, isRegularTransaction,
+                    isExceptionForBalanceCheck);
             this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
         }
 
+        updateRecurringCalendarDatesForInterestRecalculation(loan);
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_DISBURSAL,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loan.getId()) //
@@ -334,43 +437,120 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .build();
     }
 
-    private LocalDate getCalculatedRepaymentsStartingFromDate(final LocalDate actualDisbursementDate, final Loan loan,
-            final CalendarInstance calendarInstance) {
-        final Calendar calendar = calendarInstance == null ? null : calendarInstance.getCalendar();
-        LocalDate calculatedRepaymentsStartingFromDate = loan.getExpectedFirstRepaymentOnDate();
-        if (calendar != null) {// sync repayments
+    /**
+     * create standing instruction for disbursed loan
+     * 
+     * @param loan
+     *            the disbursed loan
+     * @return void
+     **/
+    private void createStandingInstruction(Loan loan) {
 
-            // TODO: AA - user provided first repayment date takes precedence
-            // over recalculated meeting date
-            if (calculatedRepaymentsStartingFromDate == null) {
-                // FIXME: AA - Possibility of having next meeting date
-                // immediately after disbursement date,
-                // need to have minimum number of days gap between disbursement
-                // and first repayment date.
-                final LoanProductRelatedDetail repaymentScheduleDetails = loan.repaymentScheduleDetail();
-                if (repaymentScheduleDetails != null) {// Not expecting to be
-                                                       // null
-                    final Integer repayEvery = repaymentScheduleDetails.getRepayEvery();
-                    final String frequency = CalendarUtils.getMeetingFrequencyFromPeriodFrequencyType(repaymentScheduleDetails
-                            .getRepaymentPeriodFrequencyType());
-                    calculatedRepaymentsStartingFromDate = CalendarUtils.getFirstRepaymentMeetingDate(calendar, actualDisbursementDate,
-                            repayEvery, frequency);
-                }
+        if (loan.shouldCreateStandingInstructionAtDisbursement()) {
+            AccountAssociations accountAssociations = this.accountAssociationRepository.findByLoanIdAndType(loan.getId(),
+                    AccountAssociationType.LINKED_ACCOUNT_ASSOCIATION.getValue());
+
+            if (accountAssociations != null) {
+
+                SavingsAccount linkedSavingsAccount = accountAssociations.linkedSavingsAccount();
+
+                // name is auto-generated
+                final String name = "To loan " + loan.getAccountNumber() + " from savings " + linkedSavingsAccount.getAccountNumber();
+                final Office fromOffice = loan.getOffice();
+                final Client fromClient = loan.getClient();
+                final Office toOffice = loan.getOffice();
+                final Client toClient = loan.getClient();
+                final Integer priority = StandingInstructionPriority.MEDIUM.getValue();
+                final Integer transferType = AccountTransferType.LOAN_REPAYMENT.getValue();
+                final Integer instructionType = StandingInstructionType.DUES.getValue();
+                final Integer status = StandingInstructionStatus.ACTIVE.getValue();
+                final Integer recurrenceType = AccountTransferRecurrenceType.AS_PER_DUES.getValue();
+                final LocalDate validFrom = new LocalDate();
+
+                AccountTransferDetails accountTransferDetails = AccountTransferDetails.savingsToLoanTransfer(fromOffice, fromClient,
+                        linkedSavingsAccount, toOffice, toClient, loan, transferType);
+
+                AccountTransferStandingInstruction accountTransferStandingInstruction = AccountTransferStandingInstruction.create(
+                        accountTransferDetails, name, priority, instructionType, status, null, validFrom, null, recurrenceType, null, null,
+                        null);
+                accountTransferDetails.updateAccountTransferStandingInstruction(accountTransferStandingInstruction);
+
+                this.accountTransferDetailRepository.save(accountTransferDetails);
             }
         }
-        return calculatedRepaymentsStartingFromDate;
+    }
+
+    private void updateRecurringCalendarDatesForInterestRecalculation(final Loan loan) {
+
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()
+                && loan.loanInterestRecalculationDetails().getRestFrequencyType().isSameAsRepayment() && !loan.isDisbursed()) {
+            final CalendarInstance calendarInstanceForInterestRecalculation = this.calendarInstanceRepository
+                    .findByEntityIdAndEntityTypeIdAndCalendarTypeId(loan.loanInterestRecalculationDetailId(),
+                            CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue(), CalendarType.COLLECTION.getValue());
+
+            Calendar calendarForInterestRecalculation = calendarInstanceForInterestRecalculation.getCalendar();
+            calendarForInterestRecalculation.updateStartAndEndDate(loan.getDisbursementDate(), loan.getMaturityDate());
+            this.calendarRepository.save(calendarForInterestRecalculation);
+        }
+
+    }
+
+    private void saveAndFlushLoanWithDataIntegrityViolationChecks(final Loan loan) {
+        try {
+            List<LoanRepaymentScheduleInstallment> installments = loan.fetchRepaymentScheduleInstallments();
+            for (LoanRepaymentScheduleInstallment installment : installments) {
+                if (installment.getId() == null) {
+                    this.repaymentScheduleInstallmentRepository.save(installment);
+                }
+            }
+            this.loanRepository.saveAndFlush(loan);
+        } catch (final DataIntegrityViolationException e) {
+            final Throwable realCause = e.getCause();
+            final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+            final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan.transaction");
+            if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
+                baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
+            }
+            if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException("validation.msg.validation.errors.exist",
+                    "Validation errors exist.", dataValidationErrors); }
+        }
+    }
+
+    private void saveLoanWithDataIntegrityViolationChecks(final Loan loan) {
+        try {
+            List<LoanRepaymentScheduleInstallment> installments = loan.fetchRepaymentScheduleInstallments();
+            for (LoanRepaymentScheduleInstallment installment : installments) {
+                if (installment.getId() == null) {
+                    this.repaymentScheduleInstallmentRepository.save(installment);
+                }
+            }
+            this.loanRepository.save(loan);
+        } catch (final DataIntegrityViolationException e) {
+            final Throwable realCause = e.getCause();
+            final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+            final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan.transaction");
+            if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
+                baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
+            }
+            if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException("validation.msg.validation.errors.exist",
+                    "Validation errors exist.", dataValidationErrors); }
+        }
     }
 
     /****
      * TODO Vishwas: Pair with Ashok and re-factor collection sheet code-base
+     * 
+     * May of the changes made to disburseLoan aren't being made here, should
+     * refactor to reuse disburseLoan ASAP
      *****/
     @Transactional
     @Override
-    public Map<String, Object> bulkLoanDisbursal(final JsonCommand command, final CollectionSheetBulkDisbursalCommand bulkDisbursalCommand) {
-        final AppUser currentUser = this.context.authenticatedUser();
+    public Map<String, Object> bulkLoanDisbursal(final JsonCommand command, final CollectionSheetBulkDisbursalCommand bulkDisbursalCommand,
+            Boolean isAccountTransfer) {
+        final AppUser currentUser = getAppUserIfPresent();
 
         final SingleDisbursalCommand[] disbursalCommand = bulkDisbursalCommand.getDisburseTransactions();
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         if (disbursalCommand == null) { return changes; }
 
         for (int i = 0; i < disbursalCommand.length; i++) {
@@ -378,11 +558,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
             final Loan loan = this.loanAssembler.assembleFrom(singleLoanDisbursalCommand.getLoanId());
             checkClientOrGroupActive(loan);
+            this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_DISBURSAL,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
             final MonetaryCurrency currency = loan.getCurrency();
             final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
 
-            final List<Long> existingTransactionIds = new ArrayList<Long>();
-            final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+            final List<Long> existingTransactionIds = new ArrayList<>();
+            final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
             final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
@@ -400,50 +582,62 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final WorkingDays workingDays = this.workingDaysRepository.findOne();
             final boolean allowTransactionsOnHoliday = this.configurationDomainService.allowTransactionsOnHolidayEnabled();
             final boolean allowTransactionsOnNonWorkingDay = this.configurationDomainService.allowTransactionsOnNonWorkingDayEnabled();
+            loan.validateAccountStatus(LoanEvent.LOAN_DISBURSED);
             updateLoanCounters(loan, actualDisbursementDate);
+            boolean canDisburse = loan.canDisburse(actualDisbursementDate);
+            ChangedTransactionDetail changedTransactionDetail = null;
+            if (canDisburse) {
+                Money amountBeforeAdjust = loan.getPrincpal();
+                Money disburseAmount = loan.adjustDisburseAmount(command, actualDisbursementDate);
+                boolean recalculateSchedule = amountBeforeAdjust.isNotEqualTo(loan.getPrincpal());
+                final String txnExternalId = command.stringValueOfParameterNamedAllowingNull("externalId");
+                if (isAccountTransfer) {
+                    disburseLoanToSavings(loan, command, disburseAmount, paymentDetail);
+                    existingTransactionIds.addAll(loan.findExistingTransactionIds());
+                    existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
 
-            loan.disburse(this.loanScheduleFactory, currentUser, command, applicationCurrency, existingTransactionIds,
-                    existingReversedTransactionIds, changes, paymentDetail, firstRepaymentOnDate, isHolidayEnabled, holidays, workingDays,
-                    allowTransactionsOnHoliday, allowTransactionsOnNonWorkingDay);
-
-            if (!changes.isEmpty()) {
-                try {
-                    this.loanRepository.save(loan);
-                } catch (final DataIntegrityViolationException e) {
-                    final Throwable realCause = e.getCause();
-                    final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
-                    final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
-                            .resource("loan.transaction");
-                    if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
-                        baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
-                    }
-                    if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(
-                            "validation.msg.validation.errors.exist", "Validation errors exist.", dataValidationErrors); }
+                } else {
+                    existingTransactionIds.addAll(loan.findExistingTransactionIds());
+                    existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
+                    LoanTransaction disbursementTransaction = LoanTransaction.disbursement(loan.getOffice(), disburseAmount, paymentDetail,
+                            actualDisbursementDate, txnExternalId, DateUtils.getLocalDateTimeOfTenant(), currentUser);
+                    disbursementTransaction.updateLoan(loan);
+                    loan.getLoanTransactions().add(disbursementTransaction);
                 }
+                CalendarInstance restCalendarInstance = null;
+                CalendarInstance compoundingCalendarInstance = null;
+                LocalDate recalculateFrom = null;
+                Long overdurPenaltyWaitPeriod = null;
+                if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                    restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                            loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+                    compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                            loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+                    overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+                }
+                HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays,
+                        allowTransactionsOnHoliday, allowTransactionsOnNonWorkingDay);
+                FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+                final ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                        firstRepaymentOnDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                        overdurPenaltyWaitPeriod, floatingRateDTO);
+                regenerateScheduleOnDisbursement(command, loan, recalculateSchedule, scheduleGeneratorDTO);
+                if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                    this.loanScheduleHistoryWritePlatformService.createAndSaveLoanScheduleArchive(
+                            loan.fetchRepaymentScheduleInstallments(), loan, null);
+                }
+
+                changedTransactionDetail = loan.disburse(currentUser, command, changes, scheduleGeneratorDTO);
+            }
+            if (!changes.isEmpty()) {
+
+                saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
 
                 final String noteText = command.stringValueOfParameterNamed("note");
                 if (StringUtils.isNotBlank(noteText)) {
                     final Note note = Note.loanNote(loan, noteText);
                     this.noteRepository.save(note);
-                }
-
-                // fix me
-                // adding loan installment charges along with the actual
-                // disbursement, is trying to add 2 extra entries with null
-                // values. which is causing issues
-                ChangedTransactionDetail changedTransactionDetail = loan.reprocessTransactionForDisbursement();
-                try {
-                    this.loanRepository.saveAndFlush(loan);
-                } catch (final DataIntegrityViolationException e) {
-                    final Throwable realCause = e.getCause();
-                    final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
-                    final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
-                            .resource("loan.transaction");
-                    if (realCause.getMessage().toLowerCase().contains("external_id_unique")) {
-                        baseDataValidator.reset().parameter("externalId").failWithCode("value.must.be.unique");
-                    }
-                    if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(
-                            "validation.msg.validation.errors.exist", "Validation errors exist.", dataValidationErrors); }
                 }
                 if (changedTransactionDetail != null) {
                     for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
@@ -451,11 +645,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                         this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
                     }
                 }
-
                 postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
             }
             final Set<LoanCharge> loanCharges = loan.charges();
-            final Map<Long, BigDecimal> disBuLoanCharges = new HashMap<Long, BigDecimal>();
+            final Map<Long, BigDecimal> disBuLoanCharges = new HashMap<>();
             for (final LoanCharge loanCharge : loanCharges) {
                 if (loanCharge.isDueAtDisbursement() && loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()
                         && loanCharge.isNotFullyPaid() && !loanCharge.isWaived()) {
@@ -465,15 +658,24 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final Locale locale = command.extractLocale();
             final DateTimeFormatter fmt = DateTimeFormat.forPattern(command.dateFormat()).withLocale(locale);
             for (final Map.Entry<Long, BigDecimal> entrySet : disBuLoanCharges.entrySet()) {
-                final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(loan
-                        .getId());
+                final PortfolioAccountData savingAccountData = this.accountAssociationsReadPlatformService
+                        .retriveLoanLinkedAssociation(loan.getId());
+                final SavingsAccount fromSavingsAccount = null;
+                final boolean isRegularTransaction = true;
+                final boolean isExceptionForBalanceCheck = false;
                 final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(actualDisbursementDate, entrySet.getValue(),
                         PortfolioAccountType.SAVINGS, PortfolioAccountType.LOAN, savingAccountData.accountId(), loan.getId(),
                         "Loan Charge Payment", locale, fmt, null, null, LoanTransactionType.REPAYMENT_AT_DISBURSEMENT.getValue(),
-                        entrySet.getKey(), null);
+                        entrySet.getKey(), null, AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, null, null, null,
+                        fromSavingsAccount, isRegularTransaction, isExceptionForBalanceCheck);
                 this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
             }
+            updateRecurringCalendarDatesForInterestRecalculation(loan);
+            this.loanAccountDomainService.recalculateAccruals(loan);
+            this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_DISBURSAL,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         }
+
         return changes;
     }
 
@@ -481,33 +683,51 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult undoLoanDisbursal(final Long loanId, final JsonCommand command) {
 
+        final AppUser currentUser = getAppUserIfPresent();
+
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_UNDO_DISBURSAL,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         removeLoanCycle(loan);
 
         //
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
 
-        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByLoanId(loan.getId(),
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
                 CalendarEntityType.LOANS.getValue());
         final LocalDate actualDisbursementDate = loan.getDisbursementDate();
-        final LocalDate calculatedRepaymentsStartingFromDate = getCalculatedRepaymentsStartingFromDate(actualDisbursementDate, loan,
-                calendarInstance);
+        final LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                actualDisbursementDate, loan, calendarInstance);
 
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(),
                 actualDisbursementDate.toDate());
         final WorkingDays workingDays = this.workingDaysRepository.findOne();
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
-        final Map<String, Object> changes = loan.undoDisbursal(this.loanScheduleFactory, applicationCurrency, existingTransactionIds,
-                existingReversedTransactionIds, calculatedRepaymentsStartingFromDate, isHolidayEnabled, holidays, workingDays);
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+        }
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(this.loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, floatingRateDTO);
+
+        final Map<String, Object> changes = loan.undoDisbursal(scheduleGeneratorDTO, existingTransactionIds,
+                existingReversedTransactionIds, currentUser);
 
         if (!changes.isEmpty()) {
-            this.loanRepository.saveAndFlush(loan);
+            saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
             this.accountTransfersWritePlatformService.reverseAllTransactions(loanId, PortfolioAccountType.LOAN);
             String noteText = null;
             if (command.hasParameter("note")) {
@@ -517,10 +737,12 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     this.noteRepository.save(note);
                 }
             }
-
+            boolean isAccountTransfer = false;
             final Map<String, Object> accountingBridgeData = loan.deriveAccountingBridgeData(applicationCurrency.toData(),
-                    existingTransactionIds, existingReversedTransactionIds);
+                    existingTransactionIds, existingReversedTransactionIds, isAccountTransfer);
             this.journalEntryWritePlatformService.createJournalEntriesForLoan(accountingBridgeData);
+            this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_UNDO_DISBURSAL,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         }
 
         return new CommandProcessingResultBuilder() //
@@ -536,9 +758,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
     @Transactional
     @Override
-    public CommandProcessingResult makeLoanRepayment(final Long loanId, final JsonCommand command) {
-
-        this.context.authenticatedUser();
+    public CommandProcessingResult makeLoanRepayment(final Long loanId, final JsonCommand command, final boolean isRecoveryRepayment) {
 
         this.loanEventApiJsonValidator.validateNewRepaymentTransaction(command.json());
 
@@ -546,11 +766,12 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed("transactionAmount");
         final String txnExternalId = command.stringValueOfParameterNamedAllowingNull("externalId");
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("transactionAmount", command.stringValueOfParameterNamed("transactionAmount"));
         changes.put("locale", command.locale());
         changes.put("dateFormat", command.dateFormat());
+        changes.put("paymentTypeId", command.stringValueOfParameterNamed("paymentTypeId"));
 
         final String noteText = command.stringValueOfParameterNamed("note");
         if (StringUtils.isNotBlank(noteText)) {
@@ -559,9 +780,10 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createAndPersistPaymentDetail(command, changes);
 
+        boolean isAccountTransfer = false;
         final CommandProcessingResultBuilder commandProcessingResultBuilder = new CommandProcessingResultBuilder();
         this.loanAccountDomainService.makeRepayment(loan, commandProcessingResultBuilder, transactionDate, transactionAmount,
-                paymentDetail, noteText, txnExternalId);
+                paymentDetail, noteText, txnExternalId, isRecoveryRepayment, isAccountTransfer);
 
         return commandProcessingResultBuilder.withCommandId(command.commandId()) //
                 .withLoanId(loanId) //
@@ -573,25 +795,28 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public Map<String, Object> makeLoanBulkRepayment(final CollectionSheetBulkRepaymentCommand bulkRepaymentCommand) {
 
-        this.context.authenticatedUser();
         final SingleRepaymentCommand[] repaymentCommand = bulkRepaymentCommand.getLoanTransactions();
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        final boolean isRecoveryRepayment = false;
 
         if (repaymentCommand == null) { return changes; }
-
+        List<Long> transactionIds = new ArrayList<>();
+        boolean isAccountTransfer = false;
         for (final SingleRepaymentCommand singleLoanRepaymentCommand : repaymentCommand) {
-            /****
-             * TODO Vishwas, have a re-look at this implementation, defaulting
-             * it to null for now
-             ***/
-            final Loan loan = this.loanAssembler.assembleFrom(singleLoanRepaymentCommand.getLoanId());
-            final PaymentDetail paymentDetail = null;
-            final CommandProcessingResultBuilder commandProcessingResultBuilder = new CommandProcessingResultBuilder();
-            this.loanAccountDomainService.makeRepayment(loan, commandProcessingResultBuilder, bulkRepaymentCommand.getTransactionDate(),
-                    singleLoanRepaymentCommand.getTransactionAmount(), paymentDetail, bulkRepaymentCommand.getNote(), null);
-
-            changes.put("bulkTransations", singleLoanRepaymentCommand);
+            if (singleLoanRepaymentCommand != null) {
+                final Loan loan = this.loanAssembler.assembleFrom(singleLoanRepaymentCommand.getLoanId());
+                final PaymentDetail paymentDetail = singleLoanRepaymentCommand.getPaymentDetail();
+                if (paymentDetail != null && paymentDetail.getId() == null) {
+                    this.paymentDetailWritePlatformService.persistPaymentDetail(paymentDetail);
+                }
+                final CommandProcessingResultBuilder commandProcessingResultBuilder = new CommandProcessingResultBuilder();
+                LoanTransaction loanTransaction = this.loanAccountDomainService.makeRepayment(loan, commandProcessingResultBuilder,
+                        bulkRepaymentCommand.getTransactionDate(), singleLoanRepaymentCommand.getTransactionAmount(), paymentDetail,
+                        bulkRepaymentCommand.getNote(), null, isRecoveryRepayment, isAccountTransfer);
+                transactionIds.add(loanTransaction.getId());
+            }
         }
+        changes.put("loanTransactions", transactionIds);
         return changes;
     }
 
@@ -599,16 +824,16 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult adjustLoanTransaction(final Long loanId, final Long transactionId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
+        AppUser currentUser = getAppUserIfPresent();
 
         this.loanEventApiJsonValidator.validateTransaction(command.json());
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
-
         final LoanTransaction transactionToAdjust = this.loanTransactionRepository.findOne(transactionId);
         if (transactionToAdjust == null) { throw new LoanTransactionNotFoundException(transactionId); }
-
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_ADJUST_TRANSACTION,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_ADJUSTED_TRANSACTION, transactionToAdjust));
         if (this.accountTransfersReadPlatformService.isAccountTransfer(transactionId, PortfolioAccountType.LOAN)) { throw new PlatformServiceUnavailableException(
                 "error.msg.loan.transfer.transaction.update.not.allowed", "Loan transaction:" + transactionId
                         + " update not allowed as it involves in account transfer", transactionId); }
@@ -619,21 +844,32 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed("transactionAmount");
         final String txnExternalId = command.stringValueOfParameterNamedAllowingNull("externalId");
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("transactionAmount", command.stringValueOfParameterNamed("transactionAmount"));
         changes.put("locale", command.locale());
         changes.put("dateFormat", command.dateFormat());
+        changes.put("paymentTypeId", command.stringValueOfParameterNamed("paymentTypeId"));
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
         final Money transactionAmountAsMoney = Money.of(loan.getCurrency(), transactionAmount);
         final PaymentDetail paymentDetail = this.paymentDetailWritePlatformService.createPaymentDetail(command, changes);
         LoanTransaction newTransactionDetail = LoanTransaction.repayment(loan.getOffice(), transactionAmountAsMoney, paymentDetail,
-                transactionDate, txnExternalId);
+                transactionDate, txnExternalId, DateUtils.getLocalDateTimeOfTenant(), currentUser);
         if (transactionToAdjust.isInterestWaiver()) {
-            newTransactionDetail = LoanTransaction.waiver(loan.getOffice(), loan, transactionAmountAsMoney, transactionDate);
+            Money unrecognizedIncome = transactionAmountAsMoney.zero();
+            Money interestComponent = transactionAmountAsMoney;
+            if (loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+                Money receivableInterest = loan.getReceivableInterest(transactionDate);
+                if (transactionAmountAsMoney.isGreaterThan(receivableInterest)) {
+                    interestComponent = receivableInterest;
+                    unrecognizedIncome = transactionAmountAsMoney.minus(receivableInterest);
+                }
+            }
+            newTransactionDetail = LoanTransaction.waiver(loan.getOffice(), loan, transactionAmountAsMoney, transactionDate,
+                    interestComponent, unrecognizedIncome, DateUtils.getLocalDateTimeOfTenant(), currentUser);
         }
 
         final boolean allowTransactionsOnHoliday = this.configurationDomainService.allowTransactionsOnHolidayEnabled();
@@ -642,9 +878,44 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final WorkingDays workingDays = this.workingDaysRepository.findOne();
         final boolean allowTransactionsOnNonWorkingDay = this.configurationDomainService.allowTransactionsOnNonWorkingDayEnabled();
 
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        ApplicationCurrency applicationCurrency = null;
+        LocalDate calculatedRepaymentsStartingFromDate = null;
+        boolean isHolidayEnabled = false;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+
+            final MonetaryCurrency currency = loan.getCurrency();
+            applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+            recalculateFrom = transactionToAdjust.getTransactionDate().isAfter(transactionDate) ? transactionDate : transactionToAdjust
+                    .getTransactionDate();
+        }
+
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays, allowTransactionsOnHoliday,
+                allowTransactionsOnNonWorkingDay);
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
         final ChangedTransactionDetail changedTransactionDetail = loan.adjustExistingTransaction(newTransactionDetail,
                 defaultLoanLifecycleStateMachine(), transactionToAdjust, existingTransactionIds, existingReversedTransactionIds,
-                allowTransactionsOnHoliday, holidays, workingDays, allowTransactionsOnNonWorkingDay);
+                scheduleGeneratorDTO, currentUser);
 
         if (newTransactionDetail.isGreaterThanZero(loan.getPrincpal().getCurrency())) {
             if (paymentDetail != null) {
@@ -660,7 +931,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
          * only in edge cases (when a adjustment is made before the latest
          * payment recorded against the loan)
          ***/
-        this.loanRepository.saveAndFlush(loan);
+        saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
         if (changedTransactionDetail != null) {
             for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
                 this.loanTransactionRepository.save(mapEntry.getValue());
@@ -685,9 +956,28 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             }
             this.noteRepository.save(note);
         }
-        this.accountTransfersWritePlatformService.reverseTransfersWithFromAccountType(loanId, PortfolioAccountType.LOAN);
+
+        Collection<Long> transactionIds = new ArrayList<>();
+        for (LoanTransaction transaction : loan.getLoanTransactions()) {
+            if (transaction.isRefund() && transaction.isNotReversed()) {
+                transactionIds.add(transaction.getId());
+            }
+        }
+
+        if (!transactionIds.isEmpty()) {
+            this.accountTransfersWritePlatformService
+                    .reverseTransfersWithFromAccountTransactions(transactionIds, PortfolioAccountType.LOAN);
+            loan.updateLoanSummarAndStatus();
+        }
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        Map<BUSINESS_ENTITY, Object> entityMap = constructEntityMap(BUSINESS_ENTITY.LOAN_ADJUSTED_TRANSACTION, transactionToAdjust);
+        if (newTransactionDetail.isRepayment() && newTransactionDetail.isGreaterThanZero(loan.getPrincpal().getCurrency())) {
+            entityMap.put(BUSINESS_ENTITY.LOAN_TRANSACTION, newTransactionDetail);
+        }
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_ADJUST_TRANSACTION, entityMap);
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -704,11 +994,11 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult waiveInterestOnLoan(final Long loanId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
+        AppUser currentUser = getAppUserIfPresent();
 
         this.loanEventApiJsonValidator.validateTransaction(command.json());
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("transactionAmount", command.stringValueOfParameterNamed("transactionAmount"));
         changes.put("locale", command.locale());
@@ -719,15 +1009,61 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
         final Money transactionAmountAsMoney = Money.of(loan.getCurrency(), transactionAmount);
+        Money unrecognizedIncome = transactionAmountAsMoney.zero();
+        Money interestComponent = transactionAmountAsMoney;
+        if (loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            Money receivableInterest = loan.getReceivableInterest(transactionDate);
+            if (transactionAmountAsMoney.isGreaterThan(receivableInterest)) {
+                interestComponent = receivableInterest;
+                unrecognizedIncome = transactionAmountAsMoney.minus(receivableInterest);
+            }
+        }
         final LoanTransaction waiveInterestTransaction = LoanTransaction.waiver(loan.getOffice(), loan, transactionAmountAsMoney,
-                transactionDate);
+                transactionDate, interestComponent, unrecognizedIncome, DateUtils.getLocalDateTimeOfTenant(), currentUser);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_WAIVE_INTEREST,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_TRANSACTION, waiveInterestTransaction));
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        ApplicationCurrency applicationCurrency = null;
+        LocalDate calculatedRepaymentsStartingFromDate = null;
+        List<Holiday> holidays = null;
+        boolean isHolidayEnabled = false;
+        WorkingDays workingDays = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
 
+            final MonetaryCurrency currency = loan.getCurrency();
+            applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate().toDate());
+            workingDays = this.workingDaysRepository.findOne();
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+            recalculateFrom = transactionDate;
+        }
+
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
         final ChangedTransactionDetail changedTransactionDetail = loan.waiveInterest(waiveInterestTransaction,
-                defaultLoanLifecycleStateMachine(), existingTransactionIds, existingReversedTransactionIds);
+                defaultLoanLifecycleStateMachine(), existingTransactionIds, existingReversedTransactionIds, scheduleGeneratorDTO,
+                currentUser);
 
         this.loanTransactionRepository.save(waiveInterestTransaction);
 
@@ -738,7 +1074,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
          * only in edge cases (when a waiver is made before the latest payment
          * recorded against the loan)
          ***/
-        this.loanRepository.saveAndFlush(loan);
+        saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
         if (changedTransactionDetail != null) {
             for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
                 this.loanTransactionRepository.save(mapEntry.getValue());
@@ -756,7 +1092,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
-
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_WAIVE_INTEREST,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_TRANSACTION, waiveInterestTransaction));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(waiveInterestTransaction.getId()) //
@@ -771,26 +1109,28 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Transactional
     @Override
     public CommandProcessingResult writeOff(final Long loanId, final JsonCommand command) {
-        final AppUser currentUser = this.context.authenticatedUser();
+        final AppUser currentUser = getAppUserIfPresent();
 
         this.loanEventApiJsonValidator.validateTransactionWithNoAmount(command.json());
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("locale", command.locale());
         changes.put("dateFormat", command.dateFormat());
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_WRITTEN_OFF,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         removeLoanCycle(loan);
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
-        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByLoanId(loan.getId(),
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
                 CalendarEntityType.LOANS.getValue());
-        final LocalDate calculatedRepaymentsStartingFromDate = getCalculatedRepaymentsStartingFromDate(loan.getDisbursementDate(), loan,
-                calendarInstance);
+        final LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                loan.getDisbursementDate(), loan, calendarInstance);
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan
                 .getDisbursementDate().toDate());
@@ -800,16 +1140,34 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
 
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+            recalculateFrom = command.localDateValueOfParameterNamed("transactionDate");
+        }
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
         final ChangedTransactionDetail changedTransactionDetail = loan.closeAsWrittenOff(command, defaultLoanLifecycleStateMachine(),
-                changes, existingTransactionIds, existingReversedTransactionIds, currentUser, this.loanScheduleFactory,
-                applicationCurrency, calculatedRepaymentsStartingFromDate, isHolidayEnabled, holidays, workingDays);
+                changes, existingTransactionIds, existingReversedTransactionIds, currentUser, scheduleGeneratorDTO);
         LoanTransaction writeoff = changedTransactionDetail.getNewTransactionMappings().remove(0L);
         this.loanTransactionRepository.save(writeoff);
         for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
             this.loanTransactionRepository.save(mapEntry.getValue());
             this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
         }
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
         final String noteText = command.stringValueOfParameterNamed("note");
         if (StringUtils.isNotBlank(noteText)) {
             changes.put("note", noteText);
@@ -818,7 +1176,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
-
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_WRITTEN_OFF,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_TRANSACTION, writeoff));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(writeoff.getId()) //
@@ -834,25 +1194,27 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult closeLoan(final Long loanId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
+        AppUser currentUser = getAppUserIfPresent();
 
         this.loanEventApiJsonValidator.validateTransactionWithNoAmount(command.json());
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_CLOSE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("locale", command.locale());
         changes.put("dateFormat", command.dateFormat());
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
 
-        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByLoanId(loan.getId(),
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
                 CalendarEntityType.LOANS.getValue());
-        final LocalDate calculatedRepaymentsStartingFromDate = getCalculatedRepaymentsStartingFromDate(loan.getDisbursementDate(), loan,
-                calendarInstance);
+        final LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                loan.getDisbursementDate(), loan, calendarInstance);
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan
                 .getDisbursementDate().toDate());
@@ -862,9 +1224,28 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
 
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+            recalculateFrom = command.localDateValueOfParameterNamed("transactionDate");
+        }
+
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(this.loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
         ChangedTransactionDetail changedTransactionDetail = loan.close(command, defaultLoanLifecycleStateMachine(), changes,
-                existingTransactionIds, existingReversedTransactionIds, this.loanScheduleFactory, applicationCurrency,
-                calculatedRepaymentsStartingFromDate, isHolidayEnabled, holidays, workingDays);
+                existingTransactionIds, existingReversedTransactionIds, scheduleGeneratorDTO, currentUser);
         final LoanTransaction possibleClosingTransaction = changedTransactionDetail.getNewTransactionMappings().remove(0L);
         if (possibleClosingTransaction != null) {
             this.loanTransactionRepository.save(possibleClosingTransaction);
@@ -873,7 +1254,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             this.loanTransactionRepository.save(mapEntry.getValue());
             this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
         }
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         final String noteText = command.stringValueOfParameterNamed("note");
         if (StringUtils.isNotBlank(noteText)) {
@@ -885,7 +1266,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         if (possibleClosingTransaction != null) {
             postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
         }
-
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_CLOSE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         CommandProcessingResult result = null;
         if (possibleClosingTransaction != null) {
 
@@ -916,22 +1299,23 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Transactional
     @Override
     public CommandProcessingResult closeAsRescheduled(final Long loanId, final JsonCommand command) {
-        this.context.authenticatedUser();
 
         this.loanEventApiJsonValidator.validateTransactionWithNoAmount(command.json());
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
         removeLoanCycle(loan);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_CLOSE_AS_RESCHEDULE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
         changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
         changes.put("locale", command.locale());
         changes.put("dateFormat", command.dateFormat());
 
         loan.closeAsMarkedForReschedule(command, defaultLoanLifecycleStateMachine(), changes);
 
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         final String noteText = command.stringValueOfParameterNamed("note");
         if (StringUtils.isNotBlank(noteText)) {
@@ -939,7 +1323,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             final Note note = Note.loanNote(loan, noteText);
             this.noteRepository.save(note);
         }
-
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_CLOSE_AS_RESCHEDULE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loanId) //
@@ -951,54 +1336,91 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .build();
     }
 
+    private void validateAddingNewChargeAllowed(Set<LoanDisbursementDetails> loanDisburseDetails) {
+        boolean pendingDisbursementAvailable = false;
+        for (LoanDisbursementDetails disbursementDetail : loanDisburseDetails) {
+            if (disbursementDetail.actualDisbursementDate() == null) {
+                pendingDisbursementAvailable = true;
+                break;
+            }
+        }
+        if (!pendingDisbursementAvailable) { throw new ChargeCannotBeUpdatedException(
+                "error.msg.charge.cannot.be.updated.no.pending.disbursements.in.loan",
+                "This charge cannot be added, No disbursement is pending"); }
+    }
+
     @Transactional
     @Override
     public CommandProcessingResult addLoanCharge(final Long loanId, final JsonCommand command) {
-
-        this.context.authenticatedUser();
 
         this.loanEventApiJsonValidator.validateAddLoanCharge(command.json());
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
 
+        Set<LoanDisbursementDetails> loanDisburseDetails = loan.getDisbursementDetails();
         final Long chargeDefinitionId = command.longValueOfParameterNamed("chargeId");
         final Charge chargeDefinition = this.chargeRepository.findOneWithNotFoundDetection(chargeDefinitionId);
 
-        final LoanCharge loanCharge = LoanCharge.createNewFromJson(loan, chargeDefinition, command);
-
-        if (!loan.hasCurrencyCodeOf(chargeDefinition.getCurrencyCode())) {
-            final String errorMessage = "Charge and Loan must have the same currency.";
-            throw new InvalidCurrencyException("loanCharge", "attach.to.loan", errorMessage);
+        if (loan.isDisbursed() && chargeDefinition.isDisbursementCharge()) {
+            validateAddingNewChargeAllowed(loanDisburseDetails); // validates
+                                                                 // whether any
+                                                                 // pending
+                                                                 // disbursements
+                                                                 // are
+                                                                 // available to
+                                                                 // apply this
+                                                                 // charge
         }
-        if (loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()) {
-            final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(loanId);
-            if (portfolioAccountData == null) {
-                final String errorMessage = loanCharge.name() + "Charge  requires linked savings account for payment";
-                throw new LinkedAccountRequiredException("loanCharge.add", errorMessage, loanCharge.name());
+        final List<Long> existingTransactionIds = new ArrayList<>(loan.findExistingTransactionIds());
+        final List<Long> existingReversedTransactionIds = new ArrayList<>(loan.findExistingReversedTransactionIds());
+
+        boolean isAppliedOnBackDate = false;
+        LoanCharge loanCharge = null;
+        LocalDate recalculateFrom = loan.fetchInterestRecalculateFromDate();
+        if (chargeDefinition.isPercentageOfDisbursementAmount()) {
+            LoanTrancheDisbursementCharge loanTrancheDisbursementCharge = null;
+            for (LoanDisbursementDetails disbursementDetail : loanDisburseDetails) {
+                if (disbursementDetail.actualDisbursementDate() == null) {
+                    loanCharge = LoanCharge.createNewWithoutLoan(chargeDefinition, disbursementDetail.principal(), null, null, null,
+                            disbursementDetail.expectedDisbursementDateAsLocalDate(), null, null);
+                    loanTrancheDisbursementCharge = new LoanTrancheDisbursementCharge(loanCharge, disbursementDetail);
+                    loanCharge.updateLoanTrancheDisbursementCharge(loanTrancheDisbursementCharge);
+                    this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_ADD_CHARGE,
+                            constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
+                    validateAddLoanCharge(loan, chargeDefinition, loanCharge);
+                    addCharge(loan, chargeDefinition, loanCharge);
+                    isAppliedOnBackDate = true;
+                    if (recalculateFrom.isAfter(disbursementDetail.expectedDisbursementDateAsLocalDate())) {
+                        recalculateFrom = disbursementDetail.expectedDisbursementDateAsLocalDate();
+                    }
+                }
+            }
+            loan.addTrancheLoanCharge(chargeDefinition);
+        } else {
+            loanCharge = LoanCharge.createNewFromJson(loan, chargeDefinition, command);
+            this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_ADD_CHARGE,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
+
+            validateAddLoanCharge(loan, chargeDefinition, loanCharge);
+            isAppliedOnBackDate = addCharge(loan, chargeDefinition, loanCharge);
+            if (loanCharge.getDueLocalDate() == null || recalculateFrom.isAfter(loanCharge.getDueLocalDate())) {
+                isAppliedOnBackDate = true;
+                recalculateFrom = loanCharge.getDueLocalDate();
             }
         }
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
-        this.loanChargeRepository.save(loanCharge);
+        boolean reprocessRequired = true;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            if (isAppliedOnBackDate && loan.isFeeCompoundingEnabledForInterestRecalculation()) {
 
-        final ChangedTransactionDetail changedTransactionDetail = loan.addLoanCharge(loanCharge, existingTransactionIds,
-                existingReversedTransactionIds);
-
-        // we want to apply charge transactions only for those loans charges
-        // that are applied when a loan is active
-        if (loan.status().isActive()) {
-            final LoanTransaction applyLoanChargeTransaction = loan.handleChargeAppliedTransaction(loanCharge, null);
-            this.loanTransactionRepository.save(applyLoanChargeTransaction);
-            /***
-             * TODO Vishwas Batch save is giving me a
-             * HibernateOptimisticLockingFailureException, looping and saving
-             * for the time being, not a major issue for now as this loop is
-             * entered only in edge cases (when a payment is made before the
-             * latest payment recorded against the loan)
-             ***/
-            this.loanRepository.saveAndFlush(loan);
+                runScheduleRecalculation(loan, recalculateFrom);
+                reprocessRequired = false;
+            }
+            updateOriginalSchedule(loan);
+        }
+        if (reprocessRequired) {
+            ChangedTransactionDetail changedTransactionDetail = loan.reprocessTransactions();
             if (changedTransactionDetail != null) {
                 for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
                     this.loanTransactionRepository.save(mapEntry.getValue());
@@ -1008,11 +1430,17 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                     this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
                 }
             }
-
-            // we post Journal entries only for loans in active status
-            postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+            saveLoanWithDataIntegrityViolationChecks(loan);
         }
 
+        postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled() && isAppliedOnBackDate
+                && loan.isFeeCompoundingEnabledForInterestRecalculation()) {
+            this.loanAccountDomainService.recalculateAccruals(loan);
+        }
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_ADD_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loanCharge.getId()) //
@@ -1023,11 +1451,148 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .build();
     }
 
+    private void validateAddLoanCharge(final Loan loan, final Charge chargeDefinition, final LoanCharge loanCharge) {
+        if (chargeDefinition.isOverdueInstallment()) {
+            final String defaultUserMessage = "Installment charge cannot be added to the loan.";
+            throw new LoanChargeCannotBeAddedException("loanCharge", "overdue.charge", defaultUserMessage, null, chargeDefinition.getName());
+        } else if (loanCharge.getDueLocalDate() != null
+                && loanCharge.getDueLocalDate().isBefore(loan.getLastUserTransactionForChargeCalc())) {
+            final String defaultUserMessage = "charge with date before last transaction date can not be added to loan.";
+            throw new LoanChargeCannotBeAddedException("loanCharge", "date.is.before.last.transaction.date", defaultUserMessage, null,
+                    chargeDefinition.getName());
+        } else if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+
+            if (loanCharge.isInstalmentFee() && loan.status().isActive()) {
+                final String defaultUserMessage = "installment charge addition not allowed after disbursement";
+                throw new LoanChargeCannotBeAddedException("loanCharge", "installment.charge", defaultUserMessage, null,
+                        chargeDefinition.getName());
+            }
+            final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+            final Set<LoanCharge> loanCharges = new HashSet<>(1);
+            loanCharges.add(loanCharge);
+            this.loanApplicationCommandFromApiJsonHelper.validateLoanCharges(loanCharges, dataValidationErrors);
+            if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(dataValidationErrors); }
+        }
+
+    }
+
+    public void runScheduleRecalculation(final Loan loan, final LocalDate recalculateFrom) {
+        AppUser currentUser = getAppUserIfPresent();
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            CalendarInstance restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            CalendarInstance compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+
+            final MonetaryCurrency currency = loan.getCurrency();
+            ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate()
+                    .toDate());
+            WorkingDays workingDays = this.workingDaysRepository.findOne();
+            final Long overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+
+            HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+            FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+            ScheduleGeneratorDTO generatorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                    calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance,
+                    recalculateFrom, overdurPenaltyWaitPeriod, floatingRateDTO);
+            ChangedTransactionDetail changedTransactionDetail = loan.handleRegenerateRepaymentScheduleWithInterestRecalculation(
+                    generatorDTO, currentUser);
+            saveLoanWithDataIntegrityViolationChecks(loan);
+            if (changedTransactionDetail != null) {
+                for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
+                    this.loanTransactionRepository.save(mapEntry.getValue());
+                    // update loan with references to the newly created
+                    // transactions
+                    loan.getLoanTransactions().add(mapEntry.getValue());
+                    this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
+                }
+            }
+
+        }
+    }
+
+    public void updateOriginalSchedule(Loan loan) {
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+
+            final MonetaryCurrency currency = loan.getCurrency();
+            ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate()
+                    .toDate());
+            WorkingDays workingDays = this.workingDaysRepository.findOne();
+
+            HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+            CalendarInstance restCalendarInstance = null;
+            CalendarInstance compoundingCalendarInstance = null;
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                        CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+                compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                        loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+            }
+            FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+            ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                    calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance,
+                    floatingRateDTO);
+            createLoanScheduleArchive(loan, scheduleGeneratorDTO);
+        }
+
+    }
+
+    private boolean addCharge(final Loan loan, final Charge chargeDefinition, final LoanCharge loanCharge) {
+
+        AppUser currentUser = getAppUserIfPresent();
+        if (!loan.hasCurrencyCodeOf(chargeDefinition.getCurrencyCode())) {
+            final String errorMessage = "Charge and Loan must have the same currency.";
+            throw new InvalidCurrencyException("loanCharge", "attach.to.loan", errorMessage);
+        }
+
+        if (loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()) {
+            final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loan
+                    .getId());
+            if (portfolioAccountData == null) {
+                final String errorMessage = loanCharge.name() + "Charge  requires linked savings account for payment";
+                throw new LinkedAccountRequiredException("loanCharge.add", errorMessage, loanCharge.name());
+            }
+        }
+
+        loan.addLoanCharge(loanCharge);
+
+        this.loanChargeRepository.save(loanCharge);
+
+        /**
+         * we want to apply charge transactions only for those loans charges
+         * that are applied when a loan is active and the loan product uses
+         * Upfront Accruals
+         **/
+        if (loan.status().isActive() && loan.isNoneOrCashOrUpfrontAccrualAccountingEnabledOnLoanProduct()) {
+            final LoanTransaction applyLoanChargeTransaction = loan.handleChargeAppliedTransaction(loanCharge, null, currentUser);
+            this.loanTransactionRepository.save(applyLoanChargeTransaction);
+        }
+        boolean isAppliedOnBackDate = false;
+        if (loanCharge.getDueLocalDate() == null || LocalDate.now().isAfter(loanCharge.getDueLocalDate())) {
+            isAppliedOnBackDate = true;
+        }
+        return isAppliedOnBackDate;
+    }
+
     @Transactional
     @Override
     public CommandProcessingResult updateLoanCharge(final Long loanId, final Long loanChargeId, final JsonCommand command) {
-
-        this.context.authenticatedUser();
 
         this.loanEventApiJsonValidator.validateUpdateOfLoanCharge(command.json());
 
@@ -1040,10 +1605,14 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         if (!loan.status().isSubmittedAndPendingApproval()) { throw new LoanChargeCannotBeUpdatedException(
                 LOAN_CHARGE_CANNOT_BE_UPDATED_REASON.LOAN_NOT_IN_SUBMITTED_AND_PENDING_APPROVAL_STAGE, loanCharge.getId()); }
 
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_UPDATE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
+
         final Map<String, Object> changes = loan.updateLoanCharge(loanCharge, command);
 
-        this.loanRepository.save(loan);
-
+        saveLoanWithDataIntegrityViolationChecks(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_UPDATE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loanChargeId) //
@@ -1059,7 +1628,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult waiveLoanCharge(final Long loanId, final Long loanChargeId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
+        AppUser currentUser = getAppUserIfPresent();
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
@@ -1076,6 +1645,8 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             throw new LoanChargeCannotBeWaivedException(LOAN_CHARGE_CANNOT_BE_WAIVED_REASON.ALREADY_WAIVED, loanCharge.getId());
         } else if (loanCharge.isPaid()) { throw new LoanChargeCannotBeWaivedException(LOAN_CHARGE_CANNOT_BE_WAIVED_REASON.ALREADY_PAID,
                 loanCharge.getId()); }
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_WAIVE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
         Integer loanInstallmentNumber = null;
         if (loanCharge.isInstalmentFee()) {
             LoanInstallmentCharge chargePerInstallment = null;
@@ -1098,18 +1669,65 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             loanInstallmentNumber = chargePerInstallment.getRepaymentInstallment().getInstallmentNumber();
         }
 
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>(3);
+        final Map<String, Object> changes = new LinkedHashMap<>(3);
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        ApplicationCurrency applicationCurrency = null;
+        LocalDate calculatedRepaymentsStartingFromDate = null;
+        List<Holiday> holidays = null;
+        boolean isHolidayEnabled = false;
+        WorkingDays workingDays = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+
+            final MonetaryCurrency currency = loan.getCurrency();
+            applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate().toDate());
+            workingDays = this.workingDaysRepository.findOne();
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+        }
+
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
+        Money accruedCharge = Money.zero(loan.getCurrency());
+        if (loan.isPeriodicAccrualAccountingEnabledOnLoanProduct()) {
+            Collection<LoanChargePaidByData> chargePaidByDatas = this.loanChargeReadPlatformService.retriveLoanChargesPaidBy(
+                    loanCharge.getId(), LoanTransactionType.ACCRUAL, loanInstallmentNumber);
+            for (LoanChargePaidByData chargePaidByData : chargePaidByDatas) {
+                accruedCharge = accruedCharge.plus(chargePaidByData.getAmount());
+            }
+        }
 
         final LoanTransaction waiveTransaction = loan.waiveLoanCharge(loanCharge, defaultLoanLifecycleStateMachine(), changes,
-                existingTransactionIds, existingReversedTransactionIds, loanInstallmentNumber);
+                existingTransactionIds, existingReversedTransactionIds, loanInstallmentNumber, scheduleGeneratorDTO, accruedCharge,
+                currentUser);
 
         this.loanTransactionRepository.save(waiveTransaction);
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_WAIVE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -1126,8 +1744,6 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult deleteLoanCharge(final Long loanId, final Long loanChargeId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
-
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
         final LoanCharge loanCharge = retrieveLoanChargeBy(loanId, loanChargeId);
@@ -1136,10 +1752,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         // yet to be approved (are in submitted and pending status)
         if (!loan.status().isSubmittedAndPendingApproval()) { throw new LoanChargeCannotBeDeletedException(
                 LOAN_CHARGE_CANNOT_BE_DELETED_REASON.LOAN_NOT_IN_SUBMITTED_AND_PENDING_APPROVAL_STAGE, loanCharge.getId()); }
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_DELETE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
 
         loan.removeLoanCharge(loanCharge);
-        this.loanRepository.save(loan);
-
+        saveLoanWithDataIntegrityViolationChecks(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_DELETE_CHARGE,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_CHARGE, loanCharge));
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loanChargeId) //
@@ -1203,16 +1822,20 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             amount = chargePerInstallment.getAmountOutstanding();
         }
 
-        final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(loanId);
+        final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loanId);
         if (portfolioAccountData == null) {
             final String errorMessage = "Charge with id:" + loanChargeId + " requires linked savings account for payment";
             throw new LinkedAccountRequiredException("loanCharge.pay", errorMessage, loanChargeId);
         }
+        final SavingsAccount fromSavingsAccount = null;
+        final boolean isRegularTransaction = true;
+        final boolean isExceptionForBalanceCheck = false;
         final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(transactionDate, amount, PortfolioAccountType.SAVINGS,
                 PortfolioAccountType.LOAN, portfolioAccountData.accountId(), loanId, "Loan Charge Payment", locale, fmt, null, null,
-                LoanTransactionType.CHARGE_PAYMENT.getValue(), loanChargeId, loanInstallmentNumber);
+                LoanTransactionType.CHARGE_PAYMENT.getValue(), loanChargeId, loanInstallmentNumber,
+                AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, null, null, null, fromSavingsAccount, isRegularTransaction,
+                isExceptionForBalanceCheck);
         this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
-
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
                 .withEntityId(loanChargeId) //
@@ -1223,39 +1846,72 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .withSavingsId(portfolioAccountData.accountId()).build();
     }
 
+    public void disburseLoanToSavings(final Loan loan, final JsonCommand command, final Money amount, final PaymentDetail paymentDetail) {
+
+        final LocalDate transactionDate = command.localDateValueOfParameterNamed("actualDisbursementDate");
+        final String txnExternalId = command.stringValueOfParameterNamedAllowingNull("externalId");
+
+        final Locale locale = command.extractLocale();
+        final DateTimeFormatter fmt = DateTimeFormat.forPattern(command.dateFormat()).withLocale(locale);
+        final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loan
+                .getId());
+        if (portfolioAccountData == null) {
+            final String errorMessage = "Disburse Loan with id:" + loan.getId() + " requires linked savings account for payment";
+            throw new LinkedAccountRequiredException("loan.disburse.to.savings", errorMessage, loan.getId());
+        }
+        final SavingsAccount fromSavingsAccount = null;
+        final boolean isExceptionForBalanceCheck = false;
+        final boolean isRegularTransaction = true;
+        final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(transactionDate, amount.getAmount(),
+                PortfolioAccountType.LOAN, PortfolioAccountType.SAVINGS, loan.getId(), portfolioAccountData.accountId(),
+                "Loan Disbursement", locale, fmt, paymentDetail, LoanTransactionType.DISBURSEMENT.getValue(), null, null, null,
+                AccountTransferType.ACCOUNT_TRANSFER.getValue(), null, null, txnExternalId, loan, null, fromSavingsAccount,
+                isRegularTransaction, isExceptionForBalanceCheck);
+        this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
+
+    }
+
     @Override
     @CronTarget(jobName = JobName.TRANSFER_FEE_CHARGE_FOR_LOANS)
     public void transferFeeCharges() throws JobExecutionException {
-        final Collection<LoanChargeData> chargeDatas = this.LoanChargeReadPlatformService.retrieveLoanChargesForFeePayment(
+        final Collection<LoanChargeData> chargeDatas = this.loanChargeReadPlatformService.retrieveLoanChargesForFeePayment(
                 ChargePaymentMode.ACCOUNT_TRANSFER.getValue(), LoanStatus.ACTIVE.getValue());
+        final boolean isRegularTransaction = true;
         final StringBuilder sb = new StringBuilder();
         if (chargeDatas != null) {
             for (final LoanChargeData chargeData : chargeDatas) {
                 if (chargeData.isInstallmentFee()) {
-                    final Collection<LoanInstallmentChargeData> chargePerInstallments = this.LoanChargeReadPlatformService
+                    final Collection<LoanInstallmentChargeData> chargePerInstallments = this.loanChargeReadPlatformService
                             .retrieveInstallmentLoanCharges(chargeData.getId(), true);
                     PortfolioAccountData portfolioAccountData = null;
                     for (final LoanInstallmentChargeData installmentChargeData : chargePerInstallments) {
                         if (!installmentChargeData.getDueDate().isAfter(new LocalDate())) {
                             if (portfolioAccountData == null) {
-                                portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(chargeData
+                                portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(chargeData
                                         .getLoanId());
                             }
+                            final SavingsAccount fromSavingsAccount = null;
+                            final boolean isExceptionForBalanceCheck = false;
                             final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(new LocalDate(),
                                     installmentChargeData.getAmountOutstanding(), PortfolioAccountType.SAVINGS, PortfolioAccountType.LOAN,
                                     portfolioAccountData.accountId(), chargeData.getLoanId(), "Loan Charge Payment", null, null, null,
                                     null, LoanTransactionType.CHARGE_PAYMENT.getValue(), chargeData.getId(),
-                                    installmentChargeData.getInstallmentNumber());
+                                    installmentChargeData.getInstallmentNumber(), AccountTransferType.CHARGE_PAYMENT.getValue(), null,
+                                    null, null, null, null, fromSavingsAccount, isRegularTransaction, isExceptionForBalanceCheck);
                             transferFeeCharge(sb, accountTransferDTO);
                         }
                     }
                 } else if (chargeData.getDueDate() != null && !chargeData.getDueDate().isAfter(new LocalDate())) {
                     final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService
-                            .retriveLoanAssociation(chargeData.getLoanId());
+                            .retriveLoanLinkedAssociation(chargeData.getLoanId());
+                    final SavingsAccount fromSavingsAccount = null;
+                    final boolean isExceptionForBalanceCheck = false;
                     final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(new LocalDate(),
                             chargeData.getAmountOutstanding(), PortfolioAccountType.SAVINGS, PortfolioAccountType.LOAN,
                             portfolioAccountData.accountId(), chargeData.getLoanId(), "Loan Charge Payment", null, null, null, null,
-                            LoanTransactionType.CHARGE_PAYMENT.getValue(), chargeData.getId(), null);
+                            LoanTransactionType.CHARGE_PAYMENT.getValue(), chargeData.getId(), null,
+                            AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, null, null, null, fromSavingsAccount,
+                            isRegularTransaction, isExceptionForBalanceCheck);
                     transferFeeCharge(sb, accountTransferDTO);
                 }
             }
@@ -1292,21 +1948,27 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public LoanTransaction initiateLoanTransfer(final Long accountId, final LocalDate transferDate) {
 
+        AppUser currentUser = getAppUserIfPresent();
+
         final Loan loan = this.loanAssembler.assembleFrom(accountId);
         checkClientOrGroupActive(loan);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_INITIATE_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>(loan.findExistingTransactionIds());
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>(loan.findExistingReversedTransactionIds());
+        final List<Long> existingTransactionIds = new ArrayList<>(loan.findExistingTransactionIds());
+        final List<Long> existingReversedTransactionIds = new ArrayList<>(loan.findExistingReversedTransactionIds());
 
-        final LoanTransaction newTransferTransaction = LoanTransaction.initiateTransfer(loan.getOffice(), loan, transferDate);
+        final LoanTransaction newTransferTransaction = LoanTransaction.initiateTransfer(loan.getOffice(), loan, transferDate,
+                DateUtils.getLocalDateTimeOfTenant(), currentUser);
         loan.getLoanTransactions().add(newTransferTransaction);
         loan.setLoanStatus(LoanStatus.TRANSFER_IN_PROGRESS.getValue());
 
         this.loanTransactionRepository.save(newTransferTransaction);
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
-
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_INITIATE_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         return newTransferTransaction;
     }
 
@@ -1315,22 +1977,32 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     public LoanTransaction acceptLoanTransfer(final Long accountId, final LocalDate transferDate, final Office acceptedInOffice,
             final Staff loanOfficer) {
 
+        AppUser currentUser = getAppUserIfPresent();
+
         final Loan loan = this.loanAssembler.assembleFrom(accountId);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_ACCEPT_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+        final List<Long> existingTransactionIds = new ArrayList<>(loan.findExistingTransactionIds());
+        final List<Long> existingReversedTransactionIds = new ArrayList<>(loan.findExistingReversedTransactionIds());
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>(loan.findExistingTransactionIds());
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>(loan.findExistingReversedTransactionIds());
-
-        final LoanTransaction newTransferAcceptanceTransaction = LoanTransaction.approveTransfer(acceptedInOffice, loan, transferDate);
+        final LoanTransaction newTransferAcceptanceTransaction = LoanTransaction.approveTransfer(acceptedInOffice, loan, transferDate,
+                DateUtils.getLocalDateTimeOfTenant(), currentUser);
         loan.getLoanTransactions().add(newTransferAcceptanceTransaction);
-        loan.setLoanStatus(LoanStatus.ACTIVE.getValue());
+        if (loan.getTotalOverpaid() != null) {
+            loan.setLoanStatus(LoanStatus.OVERPAID.getValue());
+        } else {
+            loan.setLoanStatus(LoanStatus.ACTIVE.getValue());
+        }
         if (loanOfficer != null) {
             loan.reassignLoanOfficer(loanOfficer, transferDate);
         }
 
         this.loanTransactionRepository.save(newTransferAcceptanceTransaction);
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_ACCEPT_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
         return newTransferAcceptanceTransaction;
     }
@@ -1338,19 +2010,27 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Transactional
     @Override
     public LoanTransaction withdrawLoanTransfer(final Long accountId, final LocalDate transferDate) {
+
+        AppUser currentUser = getAppUserIfPresent();
+
         final Loan loan = this.loanAssembler.assembleFrom(accountId);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_WITHDRAW_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>(loan.findExistingTransactionIds());
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>(loan.findExistingReversedTransactionIds());
+        final List<Long> existingTransactionIds = new ArrayList<>(loan.findExistingTransactionIds());
+        final List<Long> existingReversedTransactionIds = new ArrayList<>(loan.findExistingReversedTransactionIds());
 
-        final LoanTransaction newTransferAcceptanceTransaction = LoanTransaction.withdrawTransfer(loan.getOffice(), loan, transferDate);
+        final LoanTransaction newTransferAcceptanceTransaction = LoanTransaction.withdrawTransfer(loan.getOffice(), loan, transferDate,
+                DateUtils.getLocalDateTimeOfTenant(), currentUser);
         loan.getLoanTransactions().add(newTransferAcceptanceTransaction);
         loan.setLoanStatus(LoanStatus.ACTIVE.getValue());
 
         this.loanTransactionRepository.save(newTransferAcceptanceTransaction);
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_WITHDRAW_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
         return newTransferAcceptanceTransaction;
     }
@@ -1359,15 +2039,17 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public void rejectLoanTransfer(final Long accountId) {
         final Loan loan = this.loanAssembler.assembleFrom(accountId);
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_REJECT_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         loan.setLoanStatus(LoanStatus.TRANSFER_ON_HOLD.getValue());
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_REJECT_TRANSFER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
     }
 
     @Transactional
     @Override
     public CommandProcessingResult loanReassignment(final Long loanId, final JsonCommand command) {
-
-        this.context.authenticatedUser();
 
         this.loanEventApiJsonValidator.validateUpdateOfLoanOfficer(command.json());
 
@@ -1380,12 +2062,15 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
-
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_REASSIGN_OFFICER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         if (!loan.hasLoanOfficer(fromLoanOfficer)) { throw new LoanOfficerAssignmentException(loanId, fromLoanOfficerId); }
 
         loan.reassignLoanOfficer(toLoanOfficer, dateOfLoanOfficerAssignment);
 
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_REASSIGN_OFFICER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -1401,7 +2086,6 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult bulkLoanReassignment(final JsonCommand command) {
 
-        this.context.authenticatedUser();
         this.loanEventApiJsonValidator.validateForBulkLoanReassignment(command.json());
 
         final Long fromLoanOfficerId = command.longValueOfParameterNamed("fromLoanOfficerId");
@@ -1416,12 +2100,16 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         for (final String loanIdString : loanIds) {
             final Long loanId = Long.valueOf(loanIdString);
             final Loan loan = this.loanAssembler.assembleFrom(loanId);
+            this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_REASSIGN_OFFICER,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
             checkClientOrGroupActive(loan);
 
             if (!loan.hasLoanOfficer(fromLoanOfficer)) { throw new LoanOfficerAssignmentException(loanId, fromLoanOfficerId); }
 
             loan.reassignLoanOfficer(toLoanOfficer, dateOfLoanOfficerAssignment);
-            this.loanRepository.save(loan);
+            saveLoanWithDataIntegrityViolationChecks(loan);
+            this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_REASSIGN_OFFICER,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
         }
         this.loanRepository.flush();
 
@@ -1434,8 +2122,6 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public CommandProcessingResult removeLoanOfficer(final Long loanId, final JsonCommand command) {
 
-        this.context.authenticatedUser();
-
         final LoanUpdateCommand loanUpdateCommand = this.loanUpdateCommandFromApiJsonDeserializer.commandFromApiJson(command.json());
 
         loanUpdateCommand.validate();
@@ -1446,10 +2132,14 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         checkClientOrGroupActive(loan);
 
         if (loan.getLoanOfficer() == null) { throw new LoanOfficerUnassignmentException(loanId); }
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_REMOVE_OFFICER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
         loan.removeLoanOfficer(dateOfLoanOfficerunAssigned);
 
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_REMOVE_OFFICER,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
 
         return new CommandProcessingResultBuilder() //
                 .withCommandId(command.commandId()) //
@@ -1466,9 +2156,9 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
-
+        boolean isAccountTransfer = false;
         final Map<String, Object> accountingBridgeData = loan.deriveAccountingBridgeData(applicationCurrency.toData(),
-                existingTransactionIds, existingReversedTransactionIds);
+                existingTransactionIds, existingReversedTransactionIds, isAccountTransfer);
         this.journalEntryWritePlatformService.createJournalEntriesForLoan(accountingBridgeData);
     }
 
@@ -1476,13 +2166,25 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
     @Override
     public void applyMeetingDateChanges(final Calendar calendar, final Collection<CalendarInstance> loanCalendarInstances) {
 
+        final Boolean reschedulebasedOnMeetingDates = null;
+        final LocalDate presentMeetingDate = null;
+        final LocalDate newMeetingDate = null;
+
+        applyMeetingDateChanges(calendar, loanCalendarInstances, reschedulebasedOnMeetingDates, presentMeetingDate, newMeetingDate);
+
+    }
+
+    @Transactional
+    @Override
+    public void applyMeetingDateChanges(final Calendar calendar, final Collection<CalendarInstance> loanCalendarInstances,
+            final Boolean reschedulebasedOnMeetingDates, final LocalDate presentMeetingDate, final LocalDate newMeetingDate) {
+
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final WorkingDays workingDays = this.workingDaysRepository.findOne();
-        final Collection<Integer> loanStatuses = new ArrayList<Integer>(Arrays.asList(LoanStatus.SUBMITTED_AND_PENDING_APPROVAL.getValue(),
+        final Collection<Integer> loanStatuses = new ArrayList<>(Arrays.asList(LoanStatus.SUBMITTED_AND_PENDING_APPROVAL.getValue(),
                 LoanStatus.APPROVED.getValue(), LoanStatus.ACTIVE.getValue()));
-        final Collection<Integer> loanTypes = new ArrayList<Integer>(
-                Arrays.asList(AccountType.GROUP.getValue(), AccountType.JLG.getValue()));
-        final Collection<Long> loanIds = new ArrayList<Long>(loanCalendarInstances.size());
+        final Collection<Integer> loanTypes = new ArrayList<>(Arrays.asList(AccountType.GROUP.getValue(), AccountType.JLG.getValue()));
+        final Collection<Long> loanIds = new ArrayList<>(loanCalendarInstances.size());
         // loop through loanCalendarInstances to get loan ids
         for (final CalendarInstance calendarInstance : loanCalendarInstances) {
             loanIds.add(calendarInstance.getEntityId());
@@ -1493,10 +2195,21 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         // loop through each loan to reschedule the repayment dates
         for (final Loan loan : loans) {
             if (loan != null) {
+                if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                    final String defaultUserMessage = "Meeting calendar type update is not supported";
+                    throw new CalendarParameterUpdateNotSupportedException("jlg.loan.recalculation", defaultUserMessage);
+                }
                 holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate().toDate());
-                loan.updateLoanRepaymentScheduleDates(calendar.getStartDateLocalDate(), calendar.getRecurrence(), isHolidayEnabled,
-                        holidays, workingDays);
-                this.loanRepository.save(loan);
+
+                if (reschedulebasedOnMeetingDates != null && reschedulebasedOnMeetingDates) {
+                    loan.updateLoanRepaymentScheduleDates(calendar.getStartDateLocalDate(), calendar.getRecurrence(), isHolidayEnabled,
+                            holidays, workingDays, reschedulebasedOnMeetingDates, presentMeetingDate, newMeetingDate);
+                } else {
+                    loan.updateLoanRepaymentScheduleDates(calendar.getStartDateLocalDate(), calendar.getRecurrence(), isHolidayEnabled,
+                            holidays, workingDays);
+                }
+
+                saveLoanWithDataIntegrityViolationChecks(loan);
             }
         }
     }
@@ -1578,7 +2291,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
             // Update client loan counter if loan product includeInBorrowerCycle
             // is true
             if (loanToUpdate.loanProduct().isIncludeInBorrowerCycle()) {
-                Integer currentLoanCounter = loanToUpdate.getCurrentLoanCounter();
+                Integer currentLoanCounter = loanToUpdate.getCurrentLoanCounter() == null ? 1 : loanToUpdate.getCurrentLoanCounter();
                 if (newLoanCounter > currentLoanCounter) {
                     newLoanCounter = currentLoanCounter;
                 }
@@ -1657,7 +2370,7 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         if (!isHolidayEnabled) { return; }
 
-        final Collection<Integer> loanStatuses = new ArrayList<Integer>(Arrays.asList(LoanStatus.SUBMITTED_AND_PENDING_APPROVAL.getValue(),
+        final Collection<Integer> loanStatuses = new ArrayList<>(Arrays.asList(LoanStatus.SUBMITTED_AND_PENDING_APPROVAL.getValue(),
                 LoanStatus.APPROVED.getValue(), LoanStatus.ACTIVE.getValue()));
         // Get all Holidays which are active and not processed
         final List<Holiday> holidays = this.holidayRepository.findUnprocessed();
@@ -1666,13 +2379,13 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         for (final Holiday holiday : holidays) {
             // All offices to which holiday is applied
             final Set<Office> offices = holiday.getOffices();
-            final Collection<Long> officeIds = new ArrayList<Long>(offices.size());
+            final Collection<Long> officeIds = new ArrayList<>(offices.size());
             for (final Office office : offices) {
                 officeIds.add(office.getId());
             }
 
             // get all loans
-            final List<Loan> loans = new ArrayList<Loan>();
+            final List<Loan> loans = new ArrayList<>();
             // get all individual and jlg loans
             loans.addAll(this.loanRepository.findByClientOfficeIdsAndLoanStatus(officeIds, loanStatuses));
             // FIXME: AA optimize to get all client and group loans belongs to a
@@ -1728,103 +2441,202 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
         }
     }
 
-    @Override
-    @CronTarget(jobName = JobName.APPLY_CHARGE_TO_OVERDUE_LOAN_INSTALLMENT)
-    public void applyChargeForOverdueLoans() throws JobExecutionException {
+    @Transactional
+    public void applyOverdueChargesForLoan(final Long loanId, Collection<OverdueLoanScheduleData> overdueLoanScheduleDatas) {
 
-        final Long penaltyWaitPeriodValue = this.configurationDomainService.retrievePenaltyWaitPeriod();
-        final Collection<OverdueLoanScheduleData> overdueLoanScheduledInstallments = this.loanReadPlatformService
-                .retrieveAllLoansWithOverdueInstallmentsNotAlreadyPenalized(penaltyWaitPeriodValue);
+        Loan loan = null;
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
+        boolean runInterestRecalculation = false;
+        LocalDate recalculateFrom = DateUtils.getLocalDateOfTenant();
+        for (final OverdueLoanScheduleData overdueInstallment : overdueLoanScheduleDatas) {
 
-        if (!overdueLoanScheduledInstallments.isEmpty()) {
-            for (final OverdueLoanScheduleData overdueInstallment : overdueLoanScheduledInstallments) {
-                try {
+            final JsonElement parsedCommand = this.fromApiJsonHelper.parse(overdueInstallment.toString());
+            final JsonCommand command = JsonCommand.from(overdueInstallment.toString(), parsedCommand, this.fromApiJsonHelper, null, null,
+                    null, null, null, loanId, null, null, null, null);
+            LoanOverdueDTO overdueDTO = applyChargeToOverdueLoanInstallment(loanId, overdueInstallment.getChargeId(),
+                    overdueInstallment.getPeriodNumber(), command, loan, existingTransactionIds, existingReversedTransactionIds);
+            loan = overdueDTO.getLoan();
+            runInterestRecalculation = runInterestRecalculation || overdueDTO.isRunInterestRecalculation();
+            if (recalculateFrom.isAfter(overdueDTO.getRecalculateFrom())) {
+                recalculateFrom = overdueDTO.getRecalculateFrom();
+            }
+        }
+        if (loan != null) {
+            boolean reprocessRequired = true;
+            LocalDate recalculatedTill = loan.fetchInterestRecalculateFromDate();
+            if (recalculateFrom.isAfter(recalculatedTill)) {
+                recalculateFrom = recalculatedTill;
+            }
 
-                    final JsonElement parsedCommand = this.fromApiJsonHelper.parse(overdueInstallment.toString());
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                if (runInterestRecalculation && loan.isFeeCompoundingEnabledForInterestRecalculation()) {
+                    runScheduleRecalculation(loan, recalculateFrom);
+                    reprocessRequired = false;
+                }
+                updateOriginalSchedule(loan);
+            }
 
-                    final JsonCommand command = JsonCommand.from(overdueInstallment.toString(), parsedCommand, this.fromApiJsonHelper,
-                            null, null, null, null, null, overdueInstallment.getLoanId(), null, null, null, null, null, null, null);
-
-                    applyChargeToOverdueLoanInstallment(overdueInstallment.getLoanId(), overdueInstallment.getChargeId(), command);
-
-                } catch (final PlatformApiDataValidationException e) {
-                    final List<ApiParameterError> errors = e.getErrors();
-                    for (final ApiParameterError error : errors) {
-                        logger.error("Apply Charges due for overdue loans failed for account:" + overdueInstallment.getLoanId()
-                                + " with message " + error.getDeveloperMessage());
+            if (reprocessRequired) {
+                ChangedTransactionDetail changedTransactionDetail = loan.reprocessTransactions();
+                if (changedTransactionDetail != null) {
+                    for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
+                        this.loanTransactionRepository.save(mapEntry.getValue());
+                        // update loan with references to the newly created
+                        // transactions
+                        loan.getLoanTransactions().add(mapEntry.getValue());
+                        this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
                     }
                 }
+                saveLoanWithDataIntegrityViolationChecks(loan);
             }
+
+            postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled() && runInterestRecalculation
+                    && loan.isFeeCompoundingEnabledForInterestRecalculation()) {
+                this.loanAccountDomainService.recalculateAccruals(loan);
+            }
+            this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_APPLY_OVERDUE_CHARGE,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+
         }
     }
 
-    @Transactional
-    public void applyChargeToOverdueLoanInstallment(final Long loanId, final Long loanChargeId, final JsonCommand command) {
-
-        final Loan loan = this.loanAssembler.assembleFrom(loanId);
-        checkClientOrGroupActive(loan);
-
+    public LoanOverdueDTO applyChargeToOverdueLoanInstallment(final Long loanId, final Long loanChargeId, final Integer periodNumber,
+            final JsonCommand command, Loan loan, final List<Long> existingTransactionIds, final List<Long> existingReversedTransactionIds) {
+        boolean runInterestRecalculation = false;
         final Charge chargeDefinition = this.chargeRepository.findOneWithNotFoundDetection(loanChargeId);
 
-        final LoanCharge loanCharge = LoanCharge.createNewFromJson(loan, chargeDefinition, command);
+        Collection<Integer> frequencyNumbers = loanChargeReadPlatformService.retrieveOverdueInstallmentChargeFrequencyNumber(loanId,
+                chargeDefinition.getId(), periodNumber);
 
-        if (!loan.hasCurrencyCodeOf(chargeDefinition.getCurrencyCode())) {
-            final String errorMessage = "Charge and Loan must have the same currency.";
-            throw new InvalidCurrencyException("loanCharge", "attach.to.loan", errorMessage);
+        Integer feeFrequency = chargeDefinition.feeFrequency();
+        final ScheduledDateGenerator scheduledDateGenerator = new DefaultScheduledDateGenerator();
+        Map<Integer, LocalDate> scheduleDates = new HashMap<>();
+        final Long penaltyWaitPeriodValue = this.configurationDomainService.retrievePenaltyWaitPeriod();
+        final Long penaltyPostingWaitPeriodValue = this.configurationDomainService.retrieveGraceOnPenaltyPostingPeriod();
+        final LocalDate dueDate = command.localDateValueOfParameterNamed("dueDate");
+        Long diff = penaltyWaitPeriodValue + 1 - penaltyPostingWaitPeriodValue;
+        if (diff < 0) {
+            diff = 0L;
         }
+        LocalDate startDate = dueDate.plusDays(penaltyWaitPeriodValue.intValue() + 1);
+        Integer frequencyNunber = 1;
+        if (feeFrequency == null) {
+            scheduleDates.put(frequencyNunber++, startDate.minusDays(diff.intValue()));
+        } else {
+            while (DateUtils.getLocalDateOfTenant().isAfter(startDate)) {
+                scheduleDates.put(frequencyNunber++, startDate.minusDays(diff.intValue()));
+                LocalDate scheduleDate = scheduledDateGenerator.getRepaymentPeriodDate(PeriodFrequencyType.fromInt(feeFrequency),
+                        chargeDefinition.feeInterval(), startDate, null, null);
 
-        if (loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()) {
-            final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanAssociation(loanId);
-            if (portfolioAccountData == null) {
-                final String errorMessage = loanCharge.name() + "Charge  requires linked savings account for payment";
-                throw new LinkedAccountRequiredException("loanCharge.add", errorMessage, loanCharge.name());
+                startDate = scheduleDate;
             }
         }
 
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
-        this.loanChargeRepository.save(loanCharge);
+        for (Integer frequency : frequencyNumbers) {
+            scheduleDates.remove(frequency);
+        }
 
-        final ChangedTransactionDetail changedTransactionDetail = loan.addLoanCharge(loanCharge, existingTransactionIds,
-                existingReversedTransactionIds);
+        LoanRepaymentScheduleInstallment installment = null;
+        if (!scheduleDates.isEmpty()) {
+            if (loan == null) {
+                loan = this.loanAssembler.assembleFrom(loanId);
+                checkClientOrGroupActive(loan);
+                existingTransactionIds.addAll(loan.findExistingTransactionIds());
+                existingReversedTransactionIds.addAll(loan.findExistingReversedTransactionIds());
+            }
+            installment = loan.fetchRepaymentScheduleInstallment(periodNumber);
+        }
+        LocalDate recalculateFrom = DateUtils.getLocalDateOfTenant();
+        if (loan != null) {
+            this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_APPLY_OVERDUE_CHARGE,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+            for (Map.Entry<Integer, LocalDate> entry : scheduleDates.entrySet()) {
 
-        // we want to apply charge transactions only for those loans charges
-        // that are applied when a loan is active
-        if (loan.status().isActive()) {
-            final LoanTransaction applyLoanChargeTransaction = loan.handleChargeAppliedTransaction(loanCharge, null);
-            this.loanTransactionRepository.save(applyLoanChargeTransaction);
-            this.loanRepository.saveAndFlush(loan);
-            if (changedTransactionDetail != null) {
-                for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
-                    this.loanTransactionRepository.save(mapEntry.getValue());
-                    this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
+                final LoanCharge loanCharge = LoanCharge.createNewFromJson(loan, chargeDefinition, command, entry.getValue());
+
+                LoanOverdueInstallmentCharge overdueInstallmentCharge = new LoanOverdueInstallmentCharge(loanCharge, installment,
+                        entry.getKey());
+                loanCharge.updateOverdueInstallmentCharge(overdueInstallmentCharge);
+
+                boolean isAppliedOnBackDate = addCharge(loan, chargeDefinition, loanCharge);
+                runInterestRecalculation = runInterestRecalculation || isAppliedOnBackDate;
+                if (entry.getValue().isBefore(recalculateFrom)) {
+                    recalculateFrom = entry.getValue();
                 }
             }
-
-            // we post Journal entries only for loans in active status
-            postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
         }
+
+        return new LoanOverdueDTO(loan, runInterestRecalculation, recalculateFrom);
     }
 
     @Override
     public CommandProcessingResult undoWriteOff(Long loanId) {
+        final AppUser currentUser = getAppUserIfPresent();
+
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
         if (!loan.isClosedWrittenOff()) { throw new PlatformServiceUnavailableException(
                 "error.msg.loan.status.not.written.off.update.not.allowed", "Loan :" + loanId
                         + " update not allowed as loan status is not written off", loanId); }
-        ChangedTransactionDetail changedTransactionDetail = loan.undoWrittenOff(existingTransactionIds, existingReversedTransactionIds);
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        ApplicationCurrency applicationCurrency = null;
+        LocalDate calculatedRepaymentsStartingFromDate = null;
+        List<Holiday> holidays = null;
+        boolean isHolidayEnabled = false;
+        WorkingDays workingDays = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+        LoanTransaction writeOffTransaction = loan.findWriteOffTransaction();
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_UNDO_WRITTEN_OFF,
+                constructEntityMap(BUSINESS_ENTITY.LOAN_TRANSACTION, writeOffTransaction));
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+
+            final MonetaryCurrency currency = loan.getCurrency();
+            applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+            final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                    CalendarEntityType.LOANS.getValue());
+            calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                    loan.getDisbursementDate(), loan, calendarInstance);
+
+            isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+            holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate().toDate());
+            workingDays = this.workingDaysRepository.findOne();
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+        }
+
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
+        ChangedTransactionDetail changedTransactionDetail = loan.undoWrittenOff(existingTransactionIds, existingReversedTransactionIds,
+                scheduleGeneratorDTO, currentUser);
         if (changedTransactionDetail != null) {
             for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
                 this.loanTransactionRepository.save(mapEntry.getValue());
                 this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
             }
         }
-        this.loanRepository.save(loan);
+        saveLoanWithDataIntegrityViolationChecks(loan);
 
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        if (writeOffTransaction != null) {
+            this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_UNDO_WRITTEN_OFF,
+                    constructEntityMap(BUSINESS_ENTITY.LOAN_TRANSACTION, writeOffTransaction));
+        }
         return new CommandProcessingResultBuilder() //
                 .withOfficeId(loan.getOfficeId()) //
                 .withClientId(loan.getClientId()) //
@@ -1833,18 +2645,83 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
                 .build();
     }
 
+    private void validateMultiDisbursementData(final JsonCommand command, LocalDate expectedDisbursementDate) {
+        final String json = command.json();
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loan");
+        final JsonArray disbursementDataArray = command.arrayOfParameterNamed(LoanApiConstants.disbursementDataParameterName);
+        if (disbursementDataArray == null || disbursementDataArray.size() == 0) {
+            final String errorMessage = "For this loan product, disbursement details must be provided";
+            throw new MultiDisbursementDataRequiredException(LoanApiConstants.disbursementDataParameterName, errorMessage);
+        }
+        final BigDecimal principal = this.fromApiJsonHelper.extractBigDecimalWithLocaleNamed("approvedLoanAmount", element);
+
+        loanApplicationCommandFromApiJsonHelper.validateLoanMultiDisbursementdate(element, baseDataValidator, expectedDisbursementDate,
+                principal);
+        if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(dataValidationErrors); }
+    }
+
+    private void validateForAddAndDeleteTranche(final Loan loan) {
+
+        BigDecimal totalDisbursedAmount = BigDecimal.ZERO;
+        Collection<LoanDisbursementDetails> loanDisburseDetails = loan.getDisbursementDetails();
+        for (LoanDisbursementDetails disbursementDetails : loanDisburseDetails) {
+            if (disbursementDetails.actualDisbursementDate() != null) {
+                totalDisbursedAmount = totalDisbursedAmount.add(disbursementDetails.principal());
+            }
+        }
+        if (totalDisbursedAmount.compareTo(loan.getApprovedPrincipal()) == 0) {
+            final String errorMessage = "loan.disbursement.cannot.be.a.edited";
+            throw new LoanMultiDisbursementException(errorMessage);
+        }
+    }
+
     @Override
     @Transactional
-    public CommandProcessingResult updateDisbursementDateForTranche(final Long loanId, final Long disbursementId, final JsonCommand command) {
+    public CommandProcessingResult addAndDeleteLoanDisburseDetails(Long loanId, JsonCommand command) {
 
         final Loan loan = this.loanAssembler.assembleFrom(loanId);
         checkClientOrGroupActive(loan);
-        LoanDisbursementDetails loanDisbursementDetails = loan.fetchLoanDisbursementsById(disbursementId);
-        this.loanEventApiJsonValidator.validateUpdateDisbursementDate(command.json(), loanDisbursementDetails);
-        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByLoanId(loan.getId(),
+        final Map<String, Object> actualChanges = new LinkedHashMap<>();
+        LocalDate expectedDisbursementDate = loan.getExpectedDisbursedOnLocalDate();
+        if (!loan.loanProduct().isMultiDisburseLoan()) {
+            final String errorMessage = "loan.product.does.not.support.multiple.disbursals";
+            throw new LoanMultiDisbursementException(errorMessage);
+        }
+        if (loan.isSubmittedAndPendingApproval() || loan.isClosed() || loan.isClosedWrittenOff() || loan.status().isClosedObligationsMet()
+                || loan.status().isOverpaid()) {
+            final String errorMessage = "cannot.modify.tranches.if.loan.is.pendingapproval.closed.overpaid.writtenoff";
+            throw new LoanMultiDisbursementException(errorMessage);
+        }
+        validateMultiDisbursementData(command, expectedDisbursementDate);
+
+        this.validateForAddAndDeleteTranche(loan);
+
+        loan.updateDisbursementDetails(command, actualChanges);
+
+        if (loan.getDisbursementDetails().isEmpty()) {
+            final String errorMessage = "For this loan product, disbursement details must be provided";
+            throw new MultiDisbursementDataRequiredException(LoanApiConstants.disbursementDataParameterName, errorMessage);
+        }
+
+        if (loan.getDisbursementDetails().size() > loan.loanProduct().maxTrancheCount()) {
+            final String errorMessage = "Number of tranche shouldn't be greter than " + loan.loanProduct().maxTrancheCount();
+            throw new ExceedingTrancheCountException(LoanApiConstants.disbursementDataParameterName, errorMessage, loan.loanProduct()
+                    .maxTrancheCount(), loan.getDisbursementDetails().size());
+        }
+        LoanDisbursementDetails updateDetails = null;
+        return processLoanDisbursementDetail(loan, loanId, command, updateDetails);
+
+    }
+
+    private CommandProcessingResult processLoanDisbursementDetail(final Loan loan, Long loanId, JsonCommand command,
+            LoanDisbursementDetails loanDisbursementDetails) {
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
                 CalendarEntityType.LOANS.getValue());
-        final LocalDate calculatedRepaymentsStartingFromDate = getCalculatedRepaymentsStartingFromDate(loan.getDisbursementDate(), loan,
-                calendarInstance);
+        final LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                loan.getDisbursementDate(), loan, calendarInstance);
         final boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
         final List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan
                 .getDisbursementDate().toDate());
@@ -1852,37 +2729,341 @@ public class LoanWritePlatformServiceJpaRepositoryImpl implements LoanWritePlatf
 
         final MonetaryCurrency currency = loan.getCurrency();
         final ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
-        final List<Long> existingTransactionIds = new ArrayList<Long>();
-        final List<Long> existingReversedTransactionIds = new ArrayList<Long>();
-        final Map<String, Object> changes = new LinkedHashMap<String, Object>();
-        final ChangedTransactionDetail changedTransactionDetail = loan.updateDisbursementDateForTranche(loanDisbursementDetails, command,
-                existingTransactionIds, existingReversedTransactionIds, changes, this.loanScheduleFactory, applicationCurrency,
-                calculatedRepaymentsStartingFromDate, isHolidayEnabled, holidays, workingDays);
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        LocalDate recalculateFrom = null;
+        Long overdurPenaltyWaitPeriod = null;
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+            overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+        }
 
-        this.loanRepository.saveAndFlush(loan);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
 
-        if (changedTransactionDetail != null) {
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        ScheduleGeneratorDTO scheduleGeneratorDTO = new ScheduleGeneratorDTO(this.loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
+        ChangedTransactionDetail changedTransactionDetail = null;
+        AppUser currentUser = getAppUserIfPresent();
+
+        if (command.entityId() != null) {
+
+            changedTransactionDetail = loan.updateDisbursementDateAndAmountForTranche(loanDisbursementDetails, command,
+                    existingTransactionIds, existingReversedTransactionIds, changes, scheduleGeneratorDTO, currentUser);
+        } else {
+            // BigDecimal setAmount = loan.getApprovedPrincipal();
+            Collection<LoanDisbursementDetails> loanDisburseDetails = loan.getDisbursementDetails();
+            BigDecimal setAmount = BigDecimal.ZERO;
+            for (LoanDisbursementDetails details : loanDisburseDetails) {
+                if (details.expectedDisbursementDate() != null) {
+                    setAmount = setAmount.add(details.principal());
+                }
+            }
+
+            loan.repaymentScheduleDetail().setPrincipal(setAmount);
+
+            if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+                loan.regenerateRepaymentScheduleWithInterestRecalculation(scheduleGeneratorDTO, currentUser);
+            } else {
+                loan.regenerateRepaymentSchedule(scheduleGeneratorDTO, currentUser);
+                loan.processPostDisbursementTransactions();
+            }
+        }
+
+        saveAndFlushLoanWithDataIntegrityViolationChecks(loan);
+
+        if (command.entityId() != null && changedTransactionDetail != null) {
             for (Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
                 updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
             }
         }
-
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            createLoanScheduleArchive(loan, scheduleGeneratorDTO);
+        }
         postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
-
+        this.loanAccountDomainService.recalculateAccruals(loan);
         return new CommandProcessingResultBuilder() //
                 .withOfficeId(loan.getOfficeId()) //
                 .withClientId(loan.getClientId()) //
                 .withGroupId(loan.getGroupId()) //
                 .withLoanId(loanId) //
                 .with(changes).build();
+    }
+
+    @Override
+    @Transactional
+    public CommandProcessingResult updateDisbursementDateAndAmountForTranche(final Long loanId, final Long disbursementId,
+            final JsonCommand command) {
+
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        checkClientOrGroupActive(loan);
+        LoanDisbursementDetails loanDisbursementDetails = loan.fetchLoanDisbursementsById(disbursementId);
+        this.loanEventApiJsonValidator.validateUpdateDisbursementDateAndAmount(command.json(), loanDisbursementDetails);
+
+        return processLoanDisbursementDetail(loan, loanId, command, loanDisbursementDetails);
 
     }
 
+    public LoanTransaction disburseLoanAmountToSavings(final Long loanId, Long loanChargeId, final JsonCommand command,
+            final boolean isChargeIdIncludedInJson) {
+
+        LoanTransaction transaction = null;
+
+        this.loanEventApiJsonValidator.validateChargePaymentTransaction(command.json(), isChargeIdIncludedInJson);
+        if (isChargeIdIncludedInJson) {
+            loanChargeId = command.longValueOfParameterNamed("chargeId");
+        }
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        checkClientOrGroupActive(loan);
+        final LoanCharge loanCharge = retrieveLoanChargeBy(loanId, loanChargeId);
+
+        // Charges may be waived only when the loan associated with them are
+        // active
+        if (!loan.status().isActive()) { throw new LoanChargeCannotBePayedException(LOAN_CHARGE_CANNOT_BE_PAYED_REASON.LOAN_INACTIVE,
+                loanCharge.getId()); }
+
+        // validate loan charge is not already paid or waived
+        if (loanCharge.isWaived()) {
+            throw new LoanChargeCannotBePayedException(LOAN_CHARGE_CANNOT_BE_PAYED_REASON.ALREADY_WAIVED, loanCharge.getId());
+        } else if (loanCharge.isPaid()) { throw new LoanChargeCannotBePayedException(LOAN_CHARGE_CANNOT_BE_PAYED_REASON.ALREADY_PAID,
+                loanCharge.getId()); }
+
+        if (!loanCharge.getChargePaymentMode().isPaymentModeAccountTransfer()) { throw new LoanChargeCannotBePayedException(
+                LOAN_CHARGE_CANNOT_BE_PAYED_REASON.CHARGE_NOT_ACCOUNT_TRANSFER, loanCharge.getId()); }
+
+        final LocalDate transactionDate = command.localDateValueOfParameterNamed("transactionDate");
+
+        final Locale locale = command.extractLocale();
+        final DateTimeFormatter fmt = DateTimeFormat.forPattern(command.dateFormat()).withLocale(locale);
+        Integer loanInstallmentNumber = null;
+        BigDecimal amount = loanCharge.amountOutstanding();
+        if (loanCharge.isInstalmentFee()) {
+            LoanInstallmentCharge chargePerInstallment = null;
+            final LocalDate dueDate = command.localDateValueOfParameterNamed("dueDate");
+            final Integer installmentNumber = command.integerValueOfParameterNamed("installmentNumber");
+            if (dueDate != null) {
+                chargePerInstallment = loanCharge.getInstallmentLoanCharge(dueDate);
+            } else if (installmentNumber != null) {
+                chargePerInstallment = loanCharge.getInstallmentLoanCharge(installmentNumber);
+            }
+            if (chargePerInstallment == null) {
+                chargePerInstallment = loanCharge.getUnpaidInstallmentLoanCharge();
+            }
+            if (chargePerInstallment.isWaived()) {
+                throw new LoanChargeCannotBePayedException(LOAN_CHARGE_CANNOT_BE_PAYED_REASON.ALREADY_WAIVED, loanCharge.getId());
+            } else if (chargePerInstallment.isPaid()) { throw new LoanChargeCannotBePayedException(
+                    LOAN_CHARGE_CANNOT_BE_PAYED_REASON.ALREADY_PAID, loanCharge.getId()); }
+            loanInstallmentNumber = chargePerInstallment.getRepaymentInstallment().getInstallmentNumber();
+            amount = chargePerInstallment.getAmountOutstanding();
+        }
+
+        final PortfolioAccountData portfolioAccountData = this.accountAssociationsReadPlatformService.retriveLoanLinkedAssociation(loanId);
+        if (portfolioAccountData == null) {
+            final String errorMessage = "Charge with id:" + loanChargeId + " requires linked savings account for payment";
+            throw new LinkedAccountRequiredException("loanCharge.pay", errorMessage, loanChargeId);
+        }
+        final SavingsAccount fromSavingsAccount = null;
+        final boolean isRegularTransaction = true;
+        final boolean isExceptionForBalanceCheck = false;
+        final AccountTransferDTO accountTransferDTO = new AccountTransferDTO(transactionDate, amount, PortfolioAccountType.SAVINGS,
+                PortfolioAccountType.LOAN, portfolioAccountData.accountId(), loanId, "Loan Charge Payment", locale, fmt, null, null,
+                LoanTransactionType.CHARGE_PAYMENT.getValue(), loanChargeId, loanInstallmentNumber,
+                AccountTransferType.CHARGE_PAYMENT.getValue(), null, null, null, null, null, fromSavingsAccount, isRegularTransaction,
+                isExceptionForBalanceCheck);
+        this.accountTransfersWritePlatformService.transferFunds(accountTransferDTO);
+
+        return transaction;
+    }
+
+    @Transactional
+    @Override
+    public void recalculateInterest(final long loanId) {
+        Loan loan = this.loanAssembler.assembleFrom(loanId);
+        LocalDate recalculateFrom = loan.fetchInterestRecalculateFromDate();
+        AppUser currentUser = getAppUserIfPresent();
+        this.businessEventNotifierService.notifyBusinessEventToBeExecuted(BUSINESS_EVENTS.LOAN_INTEREST_RECALCULATION,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+        CalendarInstance restCalendarInstance = null;
+        CalendarInstance compoundingCalendarInstance = null;
+        final List<Long> existingTransactionIds = new ArrayList<>();
+        final List<Long> existingReversedTransactionIds = new ArrayList<>();
+        if (loan.repaymentScheduleDetail().isInterestRecalculationEnabled()) {
+            restCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(loan.loanInterestRecalculationDetailId(),
+                    CalendarEntityType.LOAN_RECALCULATION_REST_DETAIL.getValue());
+            compoundingCalendarInstance = calendarInstanceRepository.findCalendarInstaneByEntityId(
+                    loan.loanInterestRecalculationDetailId(), CalendarEntityType.LOAN_RECALCULATION_COMPOUNDING_DETAIL.getValue());
+        }
+
+        final MonetaryCurrency currency = loan.getCurrency();
+        ApplicationCurrency applicationCurrency = this.applicationCurrencyRepository.findOneWithNotFoundDetection(currency);
+        final CalendarInstance calendarInstance = this.calendarInstanceRepository.findCalendarInstaneByEntityId(loan.getId(),
+                CalendarEntityType.LOANS.getValue());
+        LocalDate calculatedRepaymentsStartingFromDate = this.loanAccountDomainService.getCalculatedRepaymentsStartingFromDate(
+                loan.getDisbursementDate(), loan, calendarInstance);
+
+        boolean isHolidayEnabled = this.configurationDomainService.isRescheduleRepaymentsOnHolidaysEnabled();
+        List<Holiday> holidays = this.holidayRepository.findByOfficeIdAndGreaterThanDate(loan.getOfficeId(), loan.getDisbursementDate()
+                .toDate());
+        WorkingDays workingDays = this.workingDaysRepository.findOne();
+        Long overdurPenaltyWaitPeriod = this.configurationDomainService.retrievePenaltyWaitPeriod();
+        HolidayDetailDTO holidayDetailDTO = new HolidayDetailDTO(isHolidayEnabled, holidays, workingDays);
+        FloatingRateDTO floatingRateDTO = constructFloatingRateDTO(loan);
+
+        ScheduleGeneratorDTO generatorDTO = new ScheduleGeneratorDTO(loanScheduleFactory, applicationCurrency,
+                calculatedRepaymentsStartingFromDate, holidayDetailDTO, restCalendarInstance, compoundingCalendarInstance, recalculateFrom,
+                overdurPenaltyWaitPeriod, floatingRateDTO);
+
+        ChangedTransactionDetail changedTransactionDetail = loan.recalculateScheduleFromLastTransaction(generatorDTO,
+                existingTransactionIds, existingReversedTransactionIds, currentUser);
+
+        saveLoanWithDataIntegrityViolationChecks(loan);
+
+        if (changedTransactionDetail != null) {
+            for (final Map.Entry<Long, LoanTransaction> mapEntry : changedTransactionDetail.getNewTransactionMappings().entrySet()) {
+                this.loanTransactionRepository.save(mapEntry.getValue());
+                // update loan with references to the newly created
+                // transactions
+                loan.getLoanTransactions().add(mapEntry.getValue());
+                this.accountTransfersWritePlatformService.updateLoanTransaction(mapEntry.getKey(), mapEntry.getValue());
+            }
+        }
+        postJournalEntries(loan, existingTransactionIds, existingReversedTransactionIds);
+        this.loanAccountDomainService.recalculateAccruals(loan);
+        this.businessEventNotifierService.notifyBusinessEventWasExecuted(BUSINESS_EVENTS.LOAN_INTEREST_RECALCULATION,
+                constructEntityMap(BUSINESS_ENTITY.LOAN, loan));
+    }
+
+    @Override
+    public CommandProcessingResult recoverFromGuarantor(final Long loanId) {
+        final Loan loan = this.loanAssembler.assembleFrom(loanId);
+        this.guarantorDomainService.transaferFundsFromGuarantor(loan);
+        return new CommandProcessingResultBuilder().withLoanId(loanId).build();
+    }
+
     private void updateLoanTransaction(final Long loanTransactionId, final LoanTransaction newLoanTransaction) {
-        final AccountTransfer transferTransaction = this.accountTransferRepository.findByToLoanTransactionId(loanTransactionId);
+        final AccountTransferTransaction transferTransaction = this.accountTransferRepository.findByToLoanTransactionId(loanTransactionId);
         if (transferTransaction != null) {
             transferTransaction.updateToLoanTransaction(newLoanTransaction);
             this.accountTransferRepository.save(transferTransaction);
         }
     }
+
+    private void createLoanScheduleArchive(final Loan loan, final ScheduleGeneratorDTO scheduleGeneratorDTO) {
+        LoanScheduleModel loanScheduleModel = loan.regenerateScheduleModel(scheduleGeneratorDTO);
+        List<LoanRepaymentScheduleInstallment> installments = retrieveRepaymentScheduleFromModel(loanScheduleModel);
+        this.loanScheduleHistoryWritePlatformService.createAndSaveLoanScheduleArchive(installments, loan, null);
+
+    }
+
+    private void regenerateScheduleOnDisbursement(final JsonCommand command, final Loan loan, final boolean recalculateSchedule,
+            final ScheduleGeneratorDTO scheduleGeneratorDTO) {
+        AppUser currentUser = getAppUserIfPresent();
+        final LocalDate actualDisbursementDate = command.localDateValueOfParameterNamed("actualDisbursementDate");
+        BigDecimal emiAmount = command.bigDecimalValueOfParameterNamed(LoanApiConstants.emiAmountParameterName);
+        loan.regenerateScheduleOnDisbursement(scheduleGeneratorDTO, recalculateSchedule, actualDisbursementDate, emiAmount, currentUser);
+    }
+
+    private List<LoanRepaymentScheduleInstallment> retrieveRepaymentScheduleFromModel(LoanScheduleModel model) {
+        final List<LoanRepaymentScheduleInstallment> installments = new ArrayList<>();
+        for (final LoanScheduleModelPeriod scheduledLoanInstallment : model.getPeriods()) {
+            if (scheduledLoanInstallment.isRepaymentPeriod()) {
+                final LoanRepaymentScheduleInstallment installment = new LoanRepaymentScheduleInstallment(null,
+                        scheduledLoanInstallment.periodNumber(), scheduledLoanInstallment.periodFromDate(),
+                        scheduledLoanInstallment.periodDueDate(), scheduledLoanInstallment.principalDue(),
+                        scheduledLoanInstallment.interestDue(), scheduledLoanInstallment.feeChargesDue(),
+                        scheduledLoanInstallment.penaltyChargesDue(), scheduledLoanInstallment.isRecalculatedInterestComponent());
+                installments.add(installment);
+            }
+        }
+        return installments;
+    }
+
+    @Override
+    @Transactional
+    public CommandProcessingResult makeLoanRefund(Long loanId, JsonCommand command) {
+        // TODO Auto-generated method stub
+
+        this.loanEventApiJsonValidator.validateNewRefundTransaction(command.json());
+
+        final LocalDate transactionDate = command.localDateValueOfParameterNamed("transactionDate");
+
+        // checkRefundDateIsAfterAtLeastOneRepayment(loanId, transactionDate);
+
+        final BigDecimal transactionAmount = command.bigDecimalValueOfParameterNamed("transactionAmount");
+        checkIfLoanIsPaidInAdvance(loanId, transactionAmount);
+
+        final Map<String, Object> changes = new LinkedHashMap<>();
+        changes.put("transactionDate", command.stringValueOfParameterNamed("transactionDate"));
+        changes.put("transactionAmount", command.stringValueOfParameterNamed("transactionAmount"));
+        changes.put("locale", command.locale());
+        changes.put("dateFormat", command.dateFormat());
+
+        final String noteText = command.stringValueOfParameterNamed("note");
+        if (StringUtils.isNotBlank(noteText)) {
+            changes.put("note", noteText);
+        }
+
+        final PaymentDetail paymentDetail = null;
+
+        final CommandProcessingResultBuilder commandProcessingResultBuilder = new CommandProcessingResultBuilder();
+
+        this.loanAccountDomainService.makeRefundForActiveLoan(loanId, commandProcessingResultBuilder, transactionDate, transactionAmount,
+                paymentDetail, noteText, null);
+
+        return commandProcessingResultBuilder.withCommandId(command.commandId()) //
+                .withLoanId(loanId) //
+                .with(changes) //
+                .build();
+
+    }
+
+    private void checkIfLoanIsPaidInAdvance(final Long loanId, final BigDecimal transactionAmount) {
+        BigDecimal overpaid = this.loanReadPlatformService.retrieveTotalPaidInAdvance(loanId).getPaidInAdvance();
+
+        if (overpaid == null || overpaid.equals(new BigDecimal(0)) || transactionAmount.floatValue() > overpaid.floatValue()) {
+            if (overpaid == null) overpaid = BigDecimal.ZERO;
+            throw new InvalidPaidInAdvanceAmountException(overpaid.toPlainString());
+        }
+    }
+
+    private AppUser getAppUserIfPresent() {
+        AppUser user = null;
+        if (this.context != null) {
+            user = this.context.getAuthenticatedUserIfPresent();
+        }
+        return user;
+    }
+
+    private Map<BUSINESS_ENTITY, Object> constructEntityMap(final BUSINESS_ENTITY entityEvent, Object entity) {
+        Map<BUSINESS_ENTITY, Object> map = new HashMap<>(1);
+        map.put(entityEvent, entity);
+        return map;
+    }
+
+    private FloatingRateDTO constructFloatingRateDTO(final Loan loan) {
+        FloatingRateDTO floatingRateDTO = null;
+        if (loan.loanProduct().isLinkedToFloatingInterestRate()) {
+            boolean isFloatingInterestRate = loan.getIsFloatingInterestRate();
+            BigDecimal interestRateDiff = loan.getInterestRateDifferential();
+            List<FloatingRatePeriodData> baseLendingRatePeriods = null;
+            try{
+            	baseLendingRatePeriods = this.floatingRatesReadPlatformService.retrieveBaseLendingRate()
+            								.getRatePeriods();
+            }catch(final FloatingRateNotFoundException ex){
+            	// Do not do anything
+            }
+            floatingRateDTO = new FloatingRateDTO(isFloatingInterestRate, loan.getDisbursementDate(), interestRateDiff,
+                    baseLendingRatePeriods);
+        }
+        return floatingRateDTO;
+    }
+
 }

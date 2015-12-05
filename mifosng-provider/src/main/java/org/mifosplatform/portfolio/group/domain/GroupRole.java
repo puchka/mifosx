@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.group.domain;
 
 import java.util.LinkedHashMap;
@@ -47,7 +52,7 @@ public class GroupRole extends AbstractPersistable<Long> {
 
     public Map<String, Object> update(final JsonCommand command) {
 
-        final Map<String, Object> actualChanges = new LinkedHashMap<String, Object>(2);
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(2);
 
         if (command.isChangeInLongParameterNamed(GroupingTypesApiConstants.clientIdParamName, this.client.getId())) {
             final Long newValue = command.longValueOfParameterNamed(GroupingTypesApiConstants.clientIdParamName);

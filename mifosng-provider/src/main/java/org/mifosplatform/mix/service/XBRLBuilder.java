@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.mix.service;
 
 import java.math.BigDecimal;
@@ -43,7 +48,7 @@ public class XBRLBuilder {
     public String build(final Map<MixTaxonomyData, BigDecimal> map, final Date startDate, final Date endDate, final String currency) {
         this.instantScenarioCounter = 1;
         this.durationScenarioCounter = 1;
-        this.contextMap = new HashMap<ContextData, String>();
+        this.contextMap = new HashMap<>();
         final Document doc = DocumentHelper.createDocument();
         this.root = doc.addElement("xbrl");
 

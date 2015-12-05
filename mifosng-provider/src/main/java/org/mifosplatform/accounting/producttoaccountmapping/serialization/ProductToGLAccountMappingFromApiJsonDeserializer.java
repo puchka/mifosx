@@ -24,6 +24,7 @@ import org.mifosplatform.infrastructure.core.exception.InvalidJsonException;
 import org.mifosplatform.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.mifosplatform.infrastructure.core.serialization.FromJsonHelper;
 import org.mifosplatform.portfolio.loanproduct.domain.LoanProduct;
+import org.mifosplatform.portfolio.savings.DepositAccountType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -66,14 +67,14 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
     public void validateForLoanProductCreate(final String json) {
         if (StringUtils.isBlank(json)) { throw new InvalidJsonException(); }
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("loanproduct");
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
         // accounting related data validation
         final Integer accountingRuleType = this.fromApiJsonHelper.extractIntegerNamed("accountingRule", element, Locale.getDefault());
-        baseDataValidator.reset().parameter("accountingRule").value(accountingRuleType).notNull().inMinMaxRange(1, 3);
+        baseDataValidator.reset().parameter("accountingRule").value(accountingRuleType).notNull().inMinMaxRange(1, 4);
 
         if (isCashBasedAccounting(accountingRuleType) || isAccrualBasedAccounting(accountingRuleType)) {
 
@@ -100,6 +101,11 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
             final Long incomeFromPenaltyId = this.fromApiJsonHelper.extractLongNamed(
                     LOAN_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_PENALTIES.getValue(), element);
             baseDataValidator.reset().parameter(LOAN_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_PENALTIES.getValue()).value(incomeFromPenaltyId)
+                    .notNull().integerGreaterThanZero();
+
+            final Long incomeFromRecoveryAccountId = this.fromApiJsonHelper.extractLongNamed(
+                    LOAN_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_RECOVERY.getValue(), element);
+            baseDataValidator.reset().parameter(LOAN_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_RECOVERY.getValue()).value(incomeFromRecoveryAccountId)
                     .notNull().integerGreaterThanZero();
 
             final Long writeOffAccountId = this.fromApiJsonHelper.extractLongNamed(
@@ -140,10 +146,10 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
 
-    public void validateForSavingsProductCreate(final String json) {
+    public void validateForSavingsProductCreate(final String json, DepositAccountType accountType) {
         if (StringUtils.isBlank(json)) { throw new InvalidJsonException(); }
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(SAVINGS_PRODUCT_RESOURCE_NAME);
 
@@ -186,20 +192,22 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
             baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_PENALTIES.getValue())
                     .value(incomeFromPenaltyId).notNull().integerGreaterThanZero();
 
-            final Long overdraftAccount = this.fromApiJsonHelper.extractLongNamed(
-                    SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(), element);
-            baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue())
-                    .value(overdraftAccount).notNull().integerGreaterThanZero();
-            
-            final Long incomeFromInterest = this.fromApiJsonHelper.extractLongNamed(
-                    SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue(), element);
-            baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue())
-                    .value(incomeFromInterest).notNull().integerGreaterThanZero();
-            
-            final Long writtenOff = this.fromApiJsonHelper.extractLongNamed(
-                    SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue(), element);
-            baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue())
-                    .value(writtenOff).notNull().integerGreaterThanZero();
+            if (!accountType.equals(DepositAccountType.RECURRING_DEPOSIT) && !accountType.equals(DepositAccountType.FIXED_DEPOSIT)) {
+                final Long overdraftAccount = this.fromApiJsonHelper.extractLongNamed(
+                        SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue(), element);
+                baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.OVERDRAFT_PORTFOLIO_CONTROL.getValue())
+                        .value(overdraftAccount).notNull().integerGreaterThanZero();
+
+                final Long incomeFromInterest = this.fromApiJsonHelper.extractLongNamed(
+                        SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue(), element);
+                baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.INCOME_FROM_INTEREST.getValue())
+                        .value(incomeFromInterest).notNull().integerGreaterThanZero();
+
+                final Long writtenOff = this.fromApiJsonHelper.extractLongNamed(
+                        SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue(), element);
+                baseDataValidator.reset().parameter(SAVINGS_PRODUCT_ACCOUNTING_PARAMS.LOSSES_WRITTEN_OFF.getValue()).value(writtenOff)
+                        .notNull().integerGreaterThanZero();
+            }
 
         }
 
@@ -211,7 +219,8 @@ public final class ProductToGLAccountMappingFromApiJsonDeserializer {
     }
 
     private boolean isAccrualBasedAccounting(final Integer accountingRuleType) {
-        return AccountingRuleType.ACCRUAL_BASED.getValue().equals(accountingRuleType);
+        return AccountingRuleType.ACCRUAL_PERIODIC.getValue().equals(accountingRuleType)
+                || AccountingRuleType.ACCRUAL_UPFRONT.getValue().equals(accountingRuleType);
     }
 
     private void throwExceptionIfValidationWarningsExist(final List<ApiParameterError> dataValidationErrors) {

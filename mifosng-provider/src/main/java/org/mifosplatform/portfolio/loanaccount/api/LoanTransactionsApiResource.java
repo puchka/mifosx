@@ -22,20 +22,22 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.LocalDate;
+import org.mifosplatform.accounting.journalentry.api.DateParam;
 import org.mifosplatform.commands.domain.CommandWrapper;
 import org.mifosplatform.commands.service.CommandWrapperBuilder;
 import org.mifosplatform.commands.service.PortfolioCommandSourceWritePlatformService;
-import org.mifosplatform.infrastructure.codes.data.CodeValueData;
-import org.mifosplatform.infrastructure.codes.service.CodeValueReadPlatformService;
 import org.mifosplatform.infrastructure.core.api.ApiRequestParameterHelper;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
 import org.mifosplatform.infrastructure.core.exception.UnrecognizedQueryParamException;
 import org.mifosplatform.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.mifosplatform.infrastructure.core.serialization.DefaultToApiJsonSerializer;
+import org.mifosplatform.infrastructure.core.service.DateUtils;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
 import org.mifosplatform.portfolio.loanaccount.data.LoanTransactionData;
 import org.mifosplatform.portfolio.loanaccount.service.LoanReadPlatformService;
-import org.mifosplatform.portfolio.paymentdetail.PaymentDetailConstants;
+import org.mifosplatform.portfolio.paymenttype.data.PaymentTypeData;
+import org.mifosplatform.portfolio.paymenttype.service.PaymentTypeReadPlatformService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -45,7 +47,7 @@ import org.springframework.stereotype.Component;
 @Scope("singleton")
 public class LoanTransactionsApiResource {
 
-    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("id", "type", "date", "currency", "amount",
+    private final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "type", "date", "currency", "amount",
             "externalId"));
 
     private final String resourceNameForPermissions = "LOAN";
@@ -55,20 +57,20 @@ public class LoanTransactionsApiResource {
     private final ApiRequestParameterHelper apiRequestParameterHelper;
     private final DefaultToApiJsonSerializer<LoanTransactionData> toApiJsonSerializer;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
-    private final CodeValueReadPlatformService codeValueReadPlatformService;
+    private final PaymentTypeReadPlatformService paymentTypeReadPlatformService;
 
     @Autowired
     public LoanTransactionsApiResource(final PlatformSecurityContext context, final LoanReadPlatformService loanReadPlatformService,
             final ApiRequestParameterHelper apiRequestParameterHelper,
             final DefaultToApiJsonSerializer<LoanTransactionData> toApiJsonSerializer,
             final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService,
-            final CodeValueReadPlatformService codeValueReadPlatformService) {
+            PaymentTypeReadPlatformService paymentTypeReadPlatformService) {
         this.context = context;
         this.loanReadPlatformService = loanReadPlatformService;
         this.apiRequestParameterHelper = apiRequestParameterHelper;
         this.toApiJsonSerializer = toApiJsonSerializer;
         this.commandsSourceWritePlatformService = commandsSourceWritePlatformService;
-        this.codeValueReadPlatformService = codeValueReadPlatformService;
+        this.paymentTypeReadPlatformService = paymentTypeReadPlatformService;
     }
 
     private boolean is(final String commandParam, final String commandValue) {
@@ -80,7 +82,8 @@ public class LoanTransactionsApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveTransactionTemplate(@PathParam("loanId") final Long loanId, @QueryParam("command") final String commandParam,
-            @Context final UriInfo uriInfo) {
+            @Context final UriInfo uriInfo, @QueryParam("dateFormat") final String dateFormat,
+            @QueryParam("transactionDate") final DateParam transactionDateParam, @QueryParam("locale") final String locale) {
 
         this.context.authenticatedUser().validateHasReadPermission(this.resourceNameForPermissions);
 
@@ -90,13 +93,29 @@ public class LoanTransactionsApiResource {
         } else if (is(commandParam, "waiveinterest")) {
             transactionData = this.loanReadPlatformService.retrieveWaiveInterestDetails(loanId);
         } else if (is(commandParam, "writeoff")) {
-            transactionData = this.loanReadPlatformService.retrieveNewClosureDetails();
+            transactionData = this.loanReadPlatformService.retrieveLoanWriteoffTemplate(loanId);
         } else if (is(commandParam, "close-rescheduled")) {
             transactionData = this.loanReadPlatformService.retrieveNewClosureDetails();
         } else if (is(commandParam, "close")) {
             transactionData = this.loanReadPlatformService.retrieveNewClosureDetails();
         } else if (is(commandParam, "disburse")) {
-            transactionData = this.loanReadPlatformService.retrieveDisbursalTemplate(loanId);
+            transactionData = this.loanReadPlatformService.retrieveDisbursalTemplate(loanId, true);
+        } else if (is(commandParam, "disburseToSavings")) {
+            transactionData = this.loanReadPlatformService.retrieveDisbursalTemplate(loanId, false);
+        } else if (is(commandParam, "recoverypayment")) {
+            transactionData = this.loanReadPlatformService.retrieveRecoveryPaymentTemplate(loanId);
+        } else if (is(commandParam, "prepayLoan")) {
+            LocalDate transactionDate = null;
+            if (transactionDateParam == null) {
+                transactionDate = DateUtils.getLocalDateOfTenant();
+            } else {
+                transactionDate = LocalDate.fromDateFields(transactionDateParam.getDate("transactionDate", dateFormat, locale));
+            }
+            transactionData = this.loanReadPlatformService.retrieveLoanPrePaymentTemplate(loanId, transactionDate);
+        } else if (is(commandParam, "refundbycash")) {
+            transactionData = this.loanReadPlatformService.retrieveRefundByCashTemplate(loanId);
+        } else if (is(commandParam, "refundbytransfer")) {
+            transactionData = this.loanReadPlatformService.retrieveDisbursalTemplate(loanId, true);
         } else {
             throw new UnrecognizedQueryParamException("command", commandParam);
         }
@@ -117,8 +136,7 @@ public class LoanTransactionsApiResource {
         LoanTransactionData transactionData = this.loanReadPlatformService.retrieveLoanTransaction(loanId, transactionId);
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         if (settings.isTemplate()) {
-            final Collection<CodeValueData> paymentTypeOptions = this.codeValueReadPlatformService
-                    .retrieveCodeValuesByCode(PaymentDetailConstants.paymentTypeCodeName);
+            final Collection<PaymentTypeData> paymentTypeOptions = this.paymentTypeReadPlatformService.retrieveAllPaymentTypes();
             transactionData = LoanTransactionData.templateOnTop(transactionData, paymentTypeOptions);
         }
 
@@ -151,6 +169,12 @@ public class LoanTransactionsApiResource {
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         } else if (is(commandParam, "undowriteoff")) {
             final CommandWrapper commandRequest = builder.undoWriteOffLoanTransaction(loanId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "recoverypayment")) {
+            final CommandWrapper commandRequest = builder.loanRecoveryPaymentTransaction(loanId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "refundByCash")) {
+            final CommandWrapper commandRequest = builder.refundLoanTransactionByCash(loanId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
         }
 

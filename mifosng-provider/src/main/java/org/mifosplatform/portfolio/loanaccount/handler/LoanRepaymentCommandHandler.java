@@ -5,6 +5,7 @@
  */
 package org.mifosplatform.portfolio.loanaccount.handler;
 
+import org.mifosplatform.commands.annotation.CommandType;
 import org.mifosplatform.commands.handler.NewCommandSourceHandler;
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@CommandType(entity = "LOAN", action = "REPAYMENT")
 public class LoanRepaymentCommandHandler implements NewCommandSourceHandler {
 
     private final LoanWritePlatformService writePlatformService;
@@ -26,7 +28,7 @@ public class LoanRepaymentCommandHandler implements NewCommandSourceHandler {
     @Transactional
     @Override
     public CommandProcessingResult processCommand(final JsonCommand command) {
-
-        return this.writePlatformService.makeLoanRepayment(command.getLoanId(), command);
+        boolean isRecoveryRepayment = false;
+        return this.writePlatformService.makeLoanRepayment(command.getLoanId(), command, isRecoveryRepayment);
     }
 }

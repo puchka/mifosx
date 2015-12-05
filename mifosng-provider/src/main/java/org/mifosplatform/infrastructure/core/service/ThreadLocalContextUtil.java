@@ -15,10 +15,12 @@ public class ThreadLocalContextUtil {
 
     public static final String CONTEXT_TENANTS = "tenants";
 
-    private static final ThreadLocal<String> contextHolder = new ThreadLocal<String>();
+    private static final ThreadLocal<String> contextHolder = new ThreadLocal<>();
 
-    private static final ThreadLocal<MifosPlatformTenant> tenantcontext = new ThreadLocal<MifosPlatformTenant>();
-
+    private static final ThreadLocal<MifosPlatformTenant> tenantcontext = new ThreadLocal<>();
+    
+    private static final ThreadLocal<String> authTokenContext = new ThreadLocal<>();
+    
     public static void setTenant(final MifosPlatformTenant tenant) {
         Assert.notNull(tenant, "tenant cannot be null");
         tenantcontext.set(tenant);
@@ -42,6 +44,14 @@ public class ThreadLocalContextUtil {
 
     public static void clearDataSourceContext() {
         contextHolder.remove();
+    }
+    
+    public static void setAuthToken(final String authToken) {
+    	authTokenContext.set(authToken);
+    }
+
+    public static String getAuthToken() {
+        return authTokenContext.get();
     }
 
 }

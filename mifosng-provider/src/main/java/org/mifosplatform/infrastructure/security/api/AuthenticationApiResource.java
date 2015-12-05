@@ -24,6 +24,7 @@ import org.mifosplatform.useradministration.domain.AppUser;
 import org.mifosplatform.useradministration.domain.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
 import org.springframework.context.annotation.Scope;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -35,6 +36,7 @@ import com.sun.jersey.core.util.Base64;
 
 @Path("/authentication")
 @Component
+@Profile("basicauth")
 @Scope("singleton")
 public class AuthenticationApiResource {
 
@@ -59,18 +61,19 @@ public class AuthenticationApiResource {
         final Authentication authentication = new UsernamePasswordAuthenticationToken(username, password);
         final Authentication authenticationCheck = this.customAuthenticationProvider.authenticate(authentication);
 
-        final Collection<String> permissions = new ArrayList<String>();
+        final Collection<String> permissions = new ArrayList<>();
         AuthenticatedUserData authenticatedUserData = new AuthenticatedUserData(username, permissions);
 
         if (authenticationCheck.isAuthenticated()) {
-            final Collection<GrantedAuthority> authorities = new ArrayList<GrantedAuthority>(authenticationCheck.getAuthorities());
+            final Collection<GrantedAuthority> authorities = new ArrayList<>(authenticationCheck.getAuthorities());
             for (final GrantedAuthority grantedAuthority : authorities) {
                 permissions.add(grantedAuthority.getAuthority());
             }
-            final AppUser principal = (AppUser) authenticationCheck.getPrincipal();
+
             final byte[] base64EncodedAuthenticationKey = Base64.encode(username + ":" + password);
 
-            final Collection<RoleData> roles = new ArrayList<RoleData>();
+            final AppUser principal = (AppUser) authenticationCheck.getPrincipal();
+            final Collection<RoleData> roles = new ArrayList<>();
             final Set<Role> userRoles = principal.getRoles();
             for (final Role role : userRoles) {
                 roles.add(role.toData());

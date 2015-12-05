@@ -19,10 +19,9 @@ public class LoanTransactionEnumData {
     private final boolean repaymentAtDisbursement;
     private final boolean repayment;
     private final boolean contra;
-    private final boolean applyInterest;
     private final boolean waiveInterest;
     private final boolean waiveCharges;
-    private final boolean applyCharges;
+    private final boolean accrual;
     private final boolean writeOff;
     private final boolean recoveryRepayment;
     private final boolean initiateTransfer;
@@ -31,6 +30,7 @@ public class LoanTransactionEnumData {
     private final boolean rejectTransfer;
     private final boolean chargePayment;
     private final boolean refund;
+    private final boolean refundForActiveLoans;
 
     public LoanTransactionEnumData(final Long id, final String code, final String value) {
         this.id = id;
@@ -42,8 +42,7 @@ public class LoanTransactionEnumData {
         this.contra = Long.valueOf(3).equals(this.id);
         this.waiveInterest = Long.valueOf(4).equals(this.id);
         this.waiveCharges = Long.valueOf(9).equals(this.id);
-        this.applyCharges = Long.valueOf(10).equals(this.id);
-        this.applyInterest = Long.valueOf(11).equals(this.id);
+        this.accrual = Long.valueOf(10).equals(this.id);
         this.writeOff = Long.valueOf(6).equals(this.id);
         this.recoveryRepayment = Long.valueOf(8).equals(this.id);
         this.initiateTransfer = Long.valueOf(12).equals(this.id);
@@ -52,6 +51,7 @@ public class LoanTransactionEnumData {
         this.rejectTransfer = Long.valueOf(15).equals(this.id);
         this.refund = Long.valueOf(16).equals(this.id);
         this.chargePayment = Long.valueOf(17).equals(this.id);
+        this.refundForActiveLoans = Long.valueOf(18).equals(this.id);
     }
 
     public Long id() {
@@ -105,12 +105,8 @@ public class LoanTransactionEnumData {
         return this.recoveryRepayment;
     }
 
-    public boolean isApplyCharges() {
-        return this.applyCharges;
-    }
-
-    public boolean isApplyInterest() {
-        return this.applyInterest;
+    public boolean isAccrual() {
+        return this.accrual;
     }
 
     public boolean isInitiateTransfer() {
@@ -135,6 +131,10 @@ public class LoanTransactionEnumData {
 
     public boolean isRefund() {
         return this.refund;
+    }
+    
+    public boolean isRefundForActiveLoans() {
+        return this.refundForActiveLoans;
     }
 
 }

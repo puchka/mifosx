@@ -64,7 +64,7 @@ public class LoanProductMinMaxConstraints {
 
     public Map<String, Object> update(final JsonCommand command) {
 
-        final Map<String, Object> actualChanges = new LinkedHashMap<String, Object>(20);
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(20);
 
         final String localeAsInput = command.locale();
 
@@ -146,5 +146,10 @@ public class LoanProductMinMaxConstraints {
     public Integer getMaxNumberOfRepayments() {
         return this.maxNumberOfRepayments;
     }
+
+	public void updateForFloatingInterestRates() {
+		this.minNominalInterestRatePerPeriod = null;
+		this.maxNominalInterestRatePerPeriod = null;
+	}
 
 }

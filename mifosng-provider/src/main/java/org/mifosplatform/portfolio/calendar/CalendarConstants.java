@@ -17,7 +17,8 @@ public class CalendarConstants {
                 "location"), START_DATE("startDate"), END_DATE("endDate"), CREATED_DATE("createdDate"), DURATION("duration"), TYPE_ID(
                 "typeId"), REPEATING("repeating"), REMIND_BY_ID("remindById"), FIRST_REMINDER("firstReminder"), SECOND_REMINDER(
                 "secondReminder"), LOCALE("locale"), DATE_FORMAT("dateFormat"), FREQUENCY("frequency"), INTERVAL("interval"), REPEATS_ON_DAY(
-                "repeatsOnDay");
+                "repeatsOnDay"), RESCHEDULE_BASED_ON_MEETING_DATES("reschedulebasedOnMeetingDates"), PRESENT_MEETING_DATE(
+                "presentMeetingDate"), NEW_MEETING_DATE("newMeetingDate"), ;
 
         private final String value;
 
@@ -25,7 +26,7 @@ public class CalendarConstants {
             this.value = value;
         }
 
-        private static final Set<String> values = new HashSet<String>();
+        private static final Set<String> values = new HashSet<>();
         static {
             for (final CALENDAR_SUPPORTED_PARAMETERS param : CALENDAR_SUPPORTED_PARAMETERS.values()) {
                 values.add(param.value);

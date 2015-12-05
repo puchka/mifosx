@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.template.domain;
 
 import java.util.ArrayList;
@@ -23,7 +28,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 
 @Entity
-@Table(name = "m_template", uniqueConstraints = { @UniqueConstraint(columnNames = { "name" }, name = "unq_name") })
+@Table(name = "m_template", uniqueConstraints = {@UniqueConstraint(columnNames = {"name"}, name = "unq_name")})
 public class Template extends AbstractPersistable<Long> {
 
     @Column(name = "name", nullable = false, unique = true)
@@ -44,7 +49,9 @@ public class Template extends AbstractPersistable<Long> {
     @OneToMany(targetEntity = TemplateMapper.class, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<TemplateMapper> mappers;
 
-    public Template(final String name, final String text, final TemplateEntity entity, final TemplateType type, final List<TemplateMapper> mappers) {
+    public Template(final String name, final String text,
+            final TemplateEntity entity, final TemplateType type,
+            final List<TemplateMapper> mappers) {
         this.name = StringUtils.defaultIfEmpty(name, null);
         this.entity = entity;
         this.type = type;
@@ -53,29 +60,41 @@ public class Template extends AbstractPersistable<Long> {
     }
 
     protected Template() {
-        //
     }
 
     public static Template fromJson(final JsonCommand command) {
         final String name = command.stringValueOfParameterNamed("name");
         final String text = command.stringValueOfParameterNamed("text");
-        final TemplateEntity entity = TemplateEntity.values()[command.integerValueSansLocaleOfParameterNamed("entity")];
-        final TemplateType type = TemplateType.values()[command.integerValueSansLocaleOfParameterNamed("type")];
+        final TemplateEntity entity = TemplateEntity.values()[command
+                .integerValueSansLocaleOfParameterNamed("entity")];
+        final int templateTypeId = command
+                .integerValueSansLocaleOfParameterNamed("type");
+        TemplateType type = null;
+        switch (templateTypeId) {
+            case 0 :
+                type = TemplateType.DOCUMENT;
+                break;
+            case 2 :
+                type = TemplateType.SMS;
+                break;
+        }
 
         final JsonArray array = command.arrayOfParameterNamed("mappers");
 
-        final List<TemplateMapper> mappersList = new ArrayList<TemplateMapper>();
+        final List<TemplateMapper> mappersList = new ArrayList<>();
 
         for (final JsonElement element : array) {
-            mappersList.add(new TemplateMapper(element.getAsJsonObject().get("mappersorder").getAsInt(), element.getAsJsonObject()
-                    .get("mapperskey").getAsString(), element.getAsJsonObject().get("mappersvalue").getAsString()));
+            mappersList.add(new TemplateMapper(element.getAsJsonObject()
+                    .get("mappersorder").getAsInt(), element.getAsJsonObject()
+                    .get("mapperskey").getAsString(), element.getAsJsonObject()
+                    .get("mappersvalue").getAsString()));
         }
 
         return new Template(name, text, entity, type, mappersList);
     }
 
     public LinkedHashMap<String, String> getMappersAsMap() {
-        final LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
+        final LinkedHashMap<String, String> map = new LinkedHashMap<>();
         for (final TemplateMapper mapper : getMappers()) {
             map.put(mapper.getMapperkey(), mapper.getMappervalue());
         }

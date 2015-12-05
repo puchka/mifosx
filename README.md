@@ -22,9 +22,8 @@ Status](https://openmf.ci.cloudbees.com/job/MIFOSX%20INTEGRATION%20TEST/badge/ic
 Version
 ==========
 
-The mifos-platform (project named 'Mifos X') has reached <b>public release version</b>. 
-
-That means there is a published and stable API. This API is documented in the api-docs under <b>Full API Matrix</b>.
+The API for the mifos-platform (project named 'Mifos X')is documented in the api-docs under <b>Full API Matrix</b> and can be viewed <a target="_blank" href="https://demo.openmf.org/api-docs/apiLive.htm" title="API Documentation"> here
+</a>
 
 Latest stable release can always been viewed on master branch: <a target="_blank" href="https://github.com/openMF/mifosx/tree/master" title="Latest Release">Latest Release on Master</a>, <a target="_blank" href="https://github.com/openMF/mifosx/blob/master/CHANGELOG.md" title="Latest release change log">View change log</a>
 
@@ -42,8 +41,8 @@ Mifos Platform API
 Online Demos
 =============================
 
-* <a target="_blank" href="https://demo.openmf.org" title="Reference Client App">Reference Client App</a>
-* <a target="_blank" href="https://demo.openmf.org/beta/" title="Community App">Community App</a>
+* <a target="_blank" href="https://demo.openmf.org" title="Reference Client App">Community App</a>
+* ~~<a target="_blank" href="https://demo.openmf.org/old/" title="Community App">Reference Client App (Deprecated)</a>~~
 
 Developers
 ==========

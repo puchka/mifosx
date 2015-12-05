@@ -47,8 +47,9 @@ CREATE TABLE `schema_version` (
 
 LOCK TABLES `schema_version` WRITE;
 /*!40000 ALTER TABLE `schema_version` DISABLE KEYS */;
-INSERT INTO `schema_version` VALUES (1,1,'1','mifos-platform-shared-tenants','SQL','/V1__mifos-platform-shared-tenants.sql',-486745552,'root','2013-04-05 09:33:11',50,1);
-/*!40000 ALTER TABLE `schema_version` ENABLE KEYS */;
+INSERT INTO `schema_version` (`version_rank`, `installed_rank`, `version`, `description`, `type`, `script`, `checksum`, `installed_by`, `installed_on`, `execution_time`, `success`) VALUES
+  (1, 1, '1', 'mifos-platform-shared-tenants', 'SQL', 'V1__mifos-platform-shared-tenants.sql', -486745552, 'root', '2014-10-12 22:13:50', 896, 1),
+  (2, 2, '2', 'externalize-connection-properties', 'SQL', 'V2__externalize-connection-properties.sql', 210473669, 'root', '2014-10-12 22:13:51', 661, 1);/*!40000 ALTER TABLE `schema_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -73,6 +74,19 @@ CREATE TABLE `tenants` (
   `schema_username` varchar(100) NOT NULL DEFAULT 'root',
   `schema_password` varchar(100) NOT NULL DEFAULT 'mysql',
   `auto_update` tinyint(1) NOT NULL DEFAULT '1',
+  `pool_initial_size` int(5) DEFAULT 5,
+  `pool_validation_interval` int(11) DEFAULT 30000,
+  `pool_remove_abandoned` tinyint(1) DEFAULT 1,
+  `pool_remove_abandoned_timeout` int(5) DEFAULT 60,
+  `pool_log_abandoned` tinyint(1) DEFAULT 1,
+  `pool_abandon_when_percentage_full` int(5) DEFAULT 50,
+  `pool_test_on_borrow` tinyint(1) DEFAULT 1,
+  `pool_max_active` int(5) DEFAULT 40,
+  `pool_min_idle` int(5) DEFAULT 20,
+  `pool_max_idle` int(5) DEFAULT 10,
+  `pool_suspect_timeout` int(5) DEFAULT 60,
+  `pool_time_between_eviction_runs_millis` int(11) DEFAULT 34000,
+  `pool_min_evictable_idle_time_millis` int(11) DEFAULT 60000,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -84,7 +98,7 @@ CREATE TABLE `tenants` (
 LOCK TABLES `tenants` WRITE;
 /*!40000 ALTER TABLE `tenants` DISABLE KEYS */;
 INSERT INTO `tenants` VALUES 
-(1,'default','default','mifostenant-default','Asia/Kolkata',NULL,NULL,NULL,NULL,'localhost','3306','root','mysql',1);
+(1,'default','default','mifostenant-default','Asia/Kolkata',NULL,NULL,NULL,NULL,'localhost','3306','root','mysql',1,5,30000,1,60,1,50,1,40,20,10,60,34000,60000);
 /*!40000 ALTER TABLE `tenants` ENABLE KEYS */;
 UNLOCK TABLES;
 

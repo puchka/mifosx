@@ -9,6 +9,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Table;
 
+import org.mifosplatform.organisation.monetary.domain.MonetaryCurrency;
 import org.springframework.data.jpa.domain.AbstractPersistable;
 
 /**
@@ -53,5 +54,13 @@ public class OrganisationCurrency extends AbstractPersistable<Long> {
         this.inMultiplesOf = inMultiplesOf;
         this.nameCode = nameCode;
         this.displaySymbol = displaySymbol;
+    }
+
+    public final String getCode() {
+        return code;
+    }
+
+    public final MonetaryCurrency toMonetaryCurrency() {
+        return new MonetaryCurrency(this.code, this.decimalPlaces, this.inMultiplesOf);
     }
 }

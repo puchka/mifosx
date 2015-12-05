@@ -5,19 +5,17 @@
  */
 package org.mifosplatform.organisation.staff.domain;
 
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import javax.persistence.*;
 
 import org.apache.commons.lang.StringUtils;
+import org.joda.time.LocalDate;
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.EnumOptionData;
+import org.mifosplatform.infrastructure.documentmanagement.domain.Image;
 import org.mifosplatform.organisation.office.domain.Office;
 import org.springframework.data.jpa.domain.AbstractPersistable;
 
@@ -55,9 +53,17 @@ public class Staff extends AbstractPersistable<Long> {
     @Column(name = "is_active", nullable = false)
     private boolean active;
 
+    @Column(name = "joining_date", nullable = false)
+    @Temporal(TemporalType.DATE)
+    private Date joiningDate;
+
     @ManyToOne
     @JoinColumn(name = "organisational_role_parent_staff_id", nullable = true)
     private Staff organisationalRoleParentStaff;
+
+    @OneToOne(optional = true)
+    @JoinColumn(name = "image_id", nullable = true)
+    private Image image;
 
     public static Staff fromJson(final Office staffOffice, final JsonCommand command) {
 
@@ -79,7 +85,14 @@ public class Staff extends AbstractPersistable<Long> {
         final String isActiveParamName = "isActive";
         final Boolean isActive = command.booleanObjectValueOfParameterNamed(isActiveParamName);
 
-        return new Staff(staffOffice, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive);
+        LocalDate joiningDate = null;
+
+        final String joiningDateParamName = "joiningDate";
+        if (command.hasParameter(joiningDateParamName)) {
+            joiningDate = command.localDateValueOfParameterNamed(joiningDateParamName);
+        }
+
+        return new Staff(staffOffice, firstname, lastname, externalId, mobileNo, isLoanOfficer, isActive, joiningDate);
     }
 
     protected Staff() {
@@ -87,7 +100,7 @@ public class Staff extends AbstractPersistable<Long> {
     }
 
     private Staff(final Office staffOffice, final String firstname, final String lastname, final String externalId, final String mobileNo,
-            final boolean isLoanOfficer, final Boolean isActive) {
+            final boolean isLoanOfficer, final Boolean isActive, final LocalDate joiningDate) {
         this.office = staffOffice;
         this.firstname = StringUtils.defaultIfEmpty(firstname, null);
         this.lastname = StringUtils.defaultIfEmpty(lastname, null);
@@ -96,6 +109,9 @@ public class Staff extends AbstractPersistable<Long> {
         this.loanOfficer = isLoanOfficer;
         this.active = (isActive == null) ? true : isActive;
         deriveDisplayName(firstname);
+        if (joiningDate != null) {
+            this.joiningDate = joiningDate.toDateTimeAtStartOfDay().toDate();
+        }
     }
 
     public EnumOptionData organisationalRoleData() {
@@ -112,7 +128,7 @@ public class Staff extends AbstractPersistable<Long> {
 
     public Map<String, Object> update(final JsonCommand command) {
 
-        final Map<String, Object> actualChanges = new LinkedHashMap<String, Object>(7);
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(7);
 
         final String officeIdParamName = "officeId";
         if (command.isChangeInLongParameterNamed(officeIdParamName, this.office.getId())) {
@@ -170,6 +186,14 @@ public class Staff extends AbstractPersistable<Long> {
             this.active = newValue;
         }
 
+        final String joiningDateParamName = "joiningDate";
+        if (command.isChangeInDateParameterNamed(joiningDateParamName, this.joiningDate)) {
+            final String valueAsInput = command.stringValueOfParameterNamed(joiningDateParamName);
+            actualChanges.put(joiningDateParamName, valueAsInput);
+            final LocalDate newValue = command.localDateValueOfParameterNamed(joiningDateParamName);
+            this.joiningDate = newValue.toDate();
+        }
+
         return actualChanges;
     }
 
@@ -215,5 +239,13 @@ public class Staff extends AbstractPersistable<Long> {
 
     public Office office() {
         return this.office;
+    }
+
+    public void setImage(Image image) {
+        this.image = image;
+    }
+
+    public Image getImage() {
+        return this.image;
     }
 }

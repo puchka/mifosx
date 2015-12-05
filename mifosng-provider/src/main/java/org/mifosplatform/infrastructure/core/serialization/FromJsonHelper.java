@@ -21,6 +21,7 @@ import org.joda.time.LocalDate;
 import org.joda.time.MonthDay;
 import org.mifosplatform.infrastructure.core.exception.InvalidJsonException;
 import org.mifosplatform.infrastructure.core.exception.UnsupportedParameterException;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import com.google.gson.Gson;
@@ -29,6 +30,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+@Primary
 @Component
 public class FromJsonHelper {
 
@@ -71,7 +73,7 @@ public class FromJsonHelper {
 
         final Map<String, Object> requestMap = this.gsonConverter.fromJson(json, typeOfMap);
 
-        final List<String> unsupportedParameterList = new ArrayList<String>();
+        final List<String> unsupportedParameterList = new ArrayList<>();
         for (final String providedParameter : requestMap.keySet()) {
             if (!supportedParams.contains(providedParameter)) {
                 unsupportedParameterList.add(providedParameter);
@@ -85,7 +87,7 @@ public class FromJsonHelper {
         if (object == null) { throw new InvalidParameterException(); }
 
         final Set<Entry<String, JsonElement>> entries = object.entrySet();
-        final List<String> unsupportedParameterList = new ArrayList<String>();
+        final List<String> unsupportedParameterList = new ArrayList<>();
 
         for (final Entry<String, JsonElement> providedParameter : entries) {
             if (!supportedParams.contains(providedParameter.getKey())) {
@@ -94,6 +96,31 @@ public class FromJsonHelper {
         }
 
         if (!unsupportedParameterList.isEmpty()) { throw new UnsupportedParameterException(unsupportedParameterList); }
+    }
+
+    /**
+     * @param parentPropertyName
+     *            The full json path to this property,the value is appended to
+     *            the parameter name while generating an error message <br/>
+     *            Ex: property "name" in Object "person" would be named as
+     *            "person.name"
+     * @param object
+     * @param supportedParams
+     */
+    public void checkForUnsupportedNestedParameters(final String parentPropertyName, final JsonObject object,
+            final Set<String> supportedParams) {
+        try {
+            checkForUnsupportedParameters(object, supportedParams);
+        } catch (UnsupportedParameterException exception) {
+            List<String> unsupportedParameters = exception.getUnsupportedParameters();
+            List<String> updatedUnsupportedParameters = new ArrayList<>();
+            for (String unsupportedParameter : unsupportedParameters) {
+                String updatedUnsupportedParameter = parentPropertyName + "." + unsupportedParameter;
+                updatedUnsupportedParameters.add(updatedUnsupportedParameter);
+            }
+            throw new UnsupportedParameterException(updatedUnsupportedParameters);
+        }
+
     }
 
     public JsonElement parse(final String json) {
@@ -224,4 +251,9 @@ public class FromJsonHelper {
     public String extractMonthDayFormatParameter(final JsonObject element) {
         return this.helperDelegator.extractMonthDayFormatParameter(element);
     }
+
+    public Gson getGsonConverter() {
+        return this.gsonConverter;
+    }
+
 }

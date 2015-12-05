@@ -17,7 +17,7 @@ public enum SavingsPostingInterestPeriodType {
     INVALID(0, "savingsPostingInterestPeriodType.invalid"), //
     MONTHLY(4, "savingsPostingInterestPeriodType.monthly"), //
     QUATERLY(5, "savingsPostingInterestPeriodType.quarterly"), //
-    ANNUAL(7, "savingsPostingInterestPeriodType.annual");
+    BIANNUAL(6, "savingsPostingInterestPeriodType.biannual"), ANNUAL(7, "savingsPostingInterestPeriodType.annual");
 
     private final Integer value;
     private final String code;
@@ -36,7 +36,7 @@ public enum SavingsPostingInterestPeriodType {
     }
 
     public static Object[] integerValues() {
-        final List<Integer> values = new ArrayList<Integer>();
+        final List<Integer> values = new ArrayList<>();
         for (final SavingsPostingInterestPeriodType enumType : values()) {
             if (enumType.getValue() > 0) {
                 values.add(enumType.getValue());
@@ -55,6 +55,9 @@ public enum SavingsPostingInterestPeriodType {
                 break;
                 case 5:
                     repaymentFrequencyType = SavingsPostingInterestPeriodType.QUATERLY;
+                break;
+                case 6:
+                    repaymentFrequencyType = SavingsPostingInterestPeriodType.BIANNUAL;
                 break;
                 case 7:
                     repaymentFrequencyType = SavingsPostingInterestPeriodType.ANNUAL;

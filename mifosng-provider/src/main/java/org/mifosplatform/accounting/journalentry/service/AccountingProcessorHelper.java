@@ -19,8 +19,14 @@ import org.mifosplatform.accounting.closure.domain.GLClosureRepository;
 import org.mifosplatform.accounting.common.AccountingConstants.ACCRUAL_ACCOUNTS_FOR_LOAN;
 import org.mifosplatform.accounting.common.AccountingConstants.CASH_ACCOUNTS_FOR_LOAN;
 import org.mifosplatform.accounting.common.AccountingConstants.CASH_ACCOUNTS_FOR_SAVINGS;
+import org.mifosplatform.accounting.common.AccountingConstants.FINANCIAL_ACTIVITY;
+import org.mifosplatform.accounting.financialactivityaccount.domain.FinancialActivityAccount;
+import org.mifosplatform.accounting.financialactivityaccount.domain.FinancialActivityAccountRepositoryWrapper;
 import org.mifosplatform.accounting.glaccount.domain.GLAccount;
+import org.mifosplatform.accounting.glaccount.domain.GLAccountRepositoryWrapper;
 import org.mifosplatform.accounting.journalentry.data.ChargePaymentDTO;
+import org.mifosplatform.accounting.journalentry.data.ClientChargePaymentDTO;
+import org.mifosplatform.accounting.journalentry.data.ClientTransactionDTO;
 import org.mifosplatform.accounting.journalentry.data.LoanDTO;
 import org.mifosplatform.accounting.journalentry.data.LoanTransactionDTO;
 import org.mifosplatform.accounting.journalentry.data.SavingsDTO;
@@ -34,10 +40,15 @@ import org.mifosplatform.accounting.producttoaccountmapping.domain.PortfolioProd
 import org.mifosplatform.accounting.producttoaccountmapping.domain.ProductToGLAccountMapping;
 import org.mifosplatform.accounting.producttoaccountmapping.domain.ProductToGLAccountMappingRepository;
 import org.mifosplatform.accounting.producttoaccountmapping.exception.ProductToGLAccountMappingNotFoundException;
+import org.mifosplatform.infrastructure.core.data.EnumOptionData;
 import org.mifosplatform.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.mifosplatform.organisation.monetary.data.CurrencyData;
 import org.mifosplatform.organisation.office.domain.Office;
 import org.mifosplatform.organisation.office.domain.OfficeRepository;
+import org.mifosplatform.portfolio.account.PortfolioAccountType;
+import org.mifosplatform.portfolio.account.service.AccountTransfersReadPlatformService;
+import org.mifosplatform.portfolio.client.domain.ClientTransaction;
+import org.mifosplatform.portfolio.client.domain.ClientTransactionRepositoryWrapper;
 import org.mifosplatform.portfolio.loanaccount.data.LoanTransactionEnumData;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanTransaction;
 import org.mifosplatform.portfolio.loanaccount.domain.LoanTransactionRepository;
@@ -53,34 +64,48 @@ public class AccountingProcessorHelper {
 
     public static final String LOAN_TRANSACTION_IDENTIFIER = "L";
     public static final String SAVINGS_TRANSACTION_IDENTIFIER = "S";
+    public static final String CLIENT_TRANSACTION_IDENTIFIER = "C";
+    public static final String PROVISIONING_TRANSACTION_IDENTIFIER = "P" ;
     private final JournalEntryRepository glJournalEntryRepository;
     private final ProductToGLAccountMappingRepository accountMappingRepository;
+    private final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository;
     private final GLClosureRepository closureRepository;
+    private final GLAccountRepositoryWrapper accountRepositoryWrapper;
     private final OfficeRepository officeRepository;
     private final LoanTransactionRepository loanTransactionRepository;
+    private final ClientTransactionRepositoryWrapper clientTransactionRepository;
     private final SavingsAccountTransactionRepository savingsAccountTransactionRepository;
+    private final AccountTransfersReadPlatformService accountTransfersReadPlatformService;
 
     @Autowired
     public AccountingProcessorHelper(final JournalEntryRepository glJournalEntryRepository,
             final ProductToGLAccountMappingRepository accountMappingRepository, final GLClosureRepository closureRepository,
             final OfficeRepository officeRepository, final LoanTransactionRepository loanTransactionRepository,
-            final SavingsAccountTransactionRepository savingsAccountTransactionRepository) {
+            final SavingsAccountTransactionRepository savingsAccountTransactionRepository,
+            final FinancialActivityAccountRepositoryWrapper financialActivityAccountRepository,
+            final AccountTransfersReadPlatformService accountTransfersReadPlatformService,
+            final GLAccountRepositoryWrapper accountRepositoryWrapper,
+            final ClientTransactionRepositoryWrapper clientTransactionRepositoryWrapper) {
         this.glJournalEntryRepository = glJournalEntryRepository;
         this.accountMappingRepository = accountMappingRepository;
         this.closureRepository = closureRepository;
         this.officeRepository = officeRepository;
         this.loanTransactionRepository = loanTransactionRepository;
         this.savingsAccountTransactionRepository = savingsAccountTransactionRepository;
+        this.financialActivityAccountRepository = financialActivityAccountRepository;
+        this.accountTransfersReadPlatformService = accountTransfersReadPlatformService;
+        this.accountRepositoryWrapper = accountRepositoryWrapper;
+        this.clientTransactionRepository = clientTransactionRepositoryWrapper;
     }
 
     public LoanDTO populateLoanDtoFromMap(final Map<String, Object> accountingBridgeData, final boolean cashBasedAccountingEnabled,
-            final boolean accrualBasedAccountingEnabled) {
+            final boolean upfrontAccrualBasedAccountingEnabled, final boolean periodicAccrualBasedAccountingEnabled) {
         final Long loanId = (Long) accountingBridgeData.get("loanId");
         final Long loanProductId = (Long) accountingBridgeData.get("loanProductId");
         final Long officeId = (Long) accountingBridgeData.get("officeId");
         final CurrencyData currencyData = (CurrencyData) accountingBridgeData.get("currency");
-
-        final List<LoanTransactionDTO> newLoanTransactions = new ArrayList<LoanTransactionDTO>();
+        final List<LoanTransactionDTO> newLoanTransactions = new ArrayList<>();
+        boolean isAccountTransfer = (Boolean) accountingBridgeData.get("isAccountTransfer");
 
         @SuppressWarnings("unchecked")
         final List<Map<String, Object>> newTransactionsMap = (List<Map<String, Object>>) accountingBridgeData.get("newLoanTransactions");
@@ -99,8 +124,8 @@ public class AccountingProcessorHelper {
             final boolean reversed = (Boolean) map.get("reversed");
             final Long paymentTypeId = (Long) map.get("paymentTypeId");
 
-            final List<ChargePaymentDTO> feePaymentDetails = new ArrayList<ChargePaymentDTO>();
-            final List<ChargePaymentDTO> penaltyPaymentDetails = new ArrayList<ChargePaymentDTO>();
+            final List<ChargePaymentDTO> feePaymentDetails = new ArrayList<>();
+            final List<ChargePaymentDTO> penaltyPaymentDetails = new ArrayList<>();
             // extract charge payment details (if exists)
             if (map.containsKey("loanChargesPaid")) {
                 @SuppressWarnings("unchecked")
@@ -119,16 +144,20 @@ public class AccountingProcessorHelper {
                 }
             }
 
+            if (!isAccountTransfer) {
+                isAccountTransfer = this.accountTransfersReadPlatformService.isAccountTransfer(Long.parseLong(transactionId),
+                        PortfolioAccountType.LOAN);
+            }
             final LoanTransactionDTO transaction = new LoanTransactionDTO(transactionOfficeId, paymentTypeId, transactionId,
                     transactionDate, transactionType, amount, principal, interest, fees, penalties, overPayments, reversed,
-                    feePaymentDetails, penaltyPaymentDetails);
+                    feePaymentDetails, penaltyPaymentDetails, isAccountTransfer);
 
             newLoanTransactions.add(transaction);
 
         }
 
-        return new LoanDTO(loanId, loanProductId, officeId, currencyData.code(), cashBasedAccountingEnabled, accrualBasedAccountingEnabled,
-                newLoanTransactions);
+        return new LoanDTO(loanId, loanProductId, officeId, currencyData.code(), cashBasedAccountingEnabled,
+                upfrontAccrualBasedAccountingEnabled, periodicAccrualBasedAccountingEnabled, newLoanTransactions);
     }
 
     public SavingsDTO populateSavingsDtoFromMap(final Map<String, Object> accountingBridgeData, final boolean cashBasedAccountingEnabled,
@@ -137,7 +166,8 @@ public class AccountingProcessorHelper {
         final Long loanProductId = (Long) accountingBridgeData.get("savingsProductId");
         final Long officeId = (Long) accountingBridgeData.get("officeId");
         final CurrencyData currencyData = (CurrencyData) accountingBridgeData.get("currency");
-        final List<SavingsTransactionDTO> newSavingsTransactions = new ArrayList<SavingsTransactionDTO>();
+        final List<SavingsTransactionDTO> newSavingsTransactions = new ArrayList<>();
+        boolean isAccountTransfer = (Boolean) accountingBridgeData.get("isAccountTransfer");
 
         @SuppressWarnings("unchecked")
         final List<Map<String, Object>> newTransactionsMap = (List<Map<String, Object>>) accountingBridgeData.get("newSavingsTransactions");
@@ -152,8 +182,8 @@ public class AccountingProcessorHelper {
             final Long paymentTypeId = (Long) map.get("paymentTypeId");
             final BigDecimal overdraftAmount = (BigDecimal) map.get("overdraftAmount");
 
-            final List<ChargePaymentDTO> feePayments = new ArrayList<ChargePaymentDTO>();
-            final List<ChargePaymentDTO> penaltyPayments = new ArrayList<ChargePaymentDTO>();
+            final List<ChargePaymentDTO> feePayments = new ArrayList<>();
+            final List<ChargePaymentDTO> penaltyPayments = new ArrayList<>();
             // extract charge payment details (if exists)
             if (map.containsKey("savingsChargesPaid")) {
                 @SuppressWarnings("unchecked")
@@ -171,9 +201,12 @@ public class AccountingProcessorHelper {
                     }
                 }
             }
-
+            if (!isAccountTransfer) {
+                isAccountTransfer = this.accountTransfersReadPlatformService.isAccountTransfer(Long.parseLong(transactionId),
+                        PortfolioAccountType.SAVINGS);
+            }
             final SavingsTransactionDTO transaction = new SavingsTransactionDTO(transactionOfficeId, paymentTypeId, transactionId,
-                    transactionDate, transactionType, amount, reversed, feePayments, penaltyPayments, overdraftAmount);
+                    transactionDate, transactionType, amount, reversed, feePayments, penaltyPayments, overdraftAmount, isAccountTransfer);
 
             newSavingsTransactions.add(transaction);
 
@@ -181,6 +214,45 @@ public class AccountingProcessorHelper {
 
         return new SavingsDTO(loanId, loanProductId, officeId, currencyData.code(), cashBasedAccountingEnabled,
                 accrualBasedAccountingEnabled, newSavingsTransactions);
+    }
+
+    public ClientTransactionDTO populateClientTransactionDtoFromMap(final Map<String, Object> accountingBridgeData) {
+
+        final Long transactionOfficeId = (Long) accountingBridgeData.get("officeId");
+        final Long clientId = (Long) accountingBridgeData.get("clientId");
+        final Long transactionId = (Long) accountingBridgeData.get("id");
+        final Date transactionDate = ((LocalDate) accountingBridgeData.get("date")).toDate();
+        final EnumOptionData transactionType = (EnumOptionData) accountingBridgeData.get("type");
+        final BigDecimal amount = (BigDecimal) accountingBridgeData.get("amount");
+        final boolean reversed = (Boolean) accountingBridgeData.get("reversed");
+        final Long paymentTypeId = (Long) accountingBridgeData.get("paymentTypeId");
+        final String currencyCode = (String) accountingBridgeData.get("currencyCode");
+        final Boolean accountingEnabled = (Boolean) accountingBridgeData.get("accountingEnabled");
+
+        final List<ClientChargePaymentDTO> clientChargePaymentDTOs = new ArrayList<>();
+        // extract client charge payment details (if exists)
+        if (accountingBridgeData.containsKey("clientChargesPaid")) {
+            @SuppressWarnings("unchecked")
+            final List<Map<String, Object>> clientChargesPaidData = (List<Map<String, Object>>) accountingBridgeData
+                    .get("clientChargesPaid");
+            for (final Map<String, Object> clientChargePaid : clientChargesPaidData) {
+                final Long chargeId = (Long) clientChargePaid.get("chargeId");
+                final Long clientChargeId = (Long) clientChargePaid.get("clientChargeId");
+                final boolean isPenalty = (Boolean) clientChargePaid.get("isPenalty");
+                final BigDecimal chargeAmountPaid = (BigDecimal) clientChargePaid.get("amount");
+                final Long incomeAccountId = (Long) clientChargePaid.get("incomeAccountId");
+                final ClientChargePaymentDTO clientChargePaymentDTO = new ClientChargePaymentDTO(chargeId, chargeAmountPaid, clientChargeId,
+                        isPenalty, incomeAccountId);
+                clientChargePaymentDTOs.add(clientChargePaymentDTO);
+            }
+        }
+
+        final ClientTransactionDTO clientTransactionDTO = new ClientTransactionDTO(clientId, transactionOfficeId, paymentTypeId,
+                transactionId, transactionDate, transactionType, currencyCode, amount, reversed, accountingEnabled,
+                clientChargePaymentDTOs);
+
+        return clientTransactionDTO;
+
     }
 
     /**
@@ -204,18 +276,78 @@ public class AccountingProcessorHelper {
      * @param isReversal
      */
     public void createAccrualBasedJournalEntriesAndReversalsForLoan(final Office office, final String currencyCode,
-            final ACCRUAL_ACCOUNTS_FOR_LOAN accountTypeToBeDebited, final ACCRUAL_ACCOUNTS_FOR_LOAN accountTypeToBeCredited,
-            final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId, final Date transactionDate,
-            final BigDecimal amount, final Boolean isReversal) {
-        int accountTypeToDebitId = accountTypeToBeDebited.getValue();
-        int accountTypeToCreditId = accountTypeToBeCredited.getValue();
+            final Integer accountTypeToBeDebited, final Integer accountTypeToBeCredited, final Long loanProductId, final Long paymentTypeId,
+            final Long loanId, final String transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
+        int accountTypeToDebitId = accountTypeToBeDebited;
+        int accountTypeToCreditId = accountTypeToBeCredited;
         // reverse debits and credits for reversals
         if (isReversal) {
-            accountTypeToDebitId = accountTypeToBeCredited.getValue();
-            accountTypeToCreditId = accountTypeToBeDebited.getValue();
+            accountTypeToDebitId = accountTypeToBeCredited;
+            accountTypeToCreditId = accountTypeToBeDebited;
         }
-        createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, loanProductId, paymentTypeId,
-                loanId, transactionId, transactionDate, amount);
+        createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, loanProductId, paymentTypeId, loanId,
+                transactionId, transactionDate, amount);
+    }
+
+    /**
+     * Convenience method that creates a pair of related Debits and Credits for
+     * Accrual Based accounting.
+     * 
+     * The target accounts for debits and credits are switched in case of a
+     * reversal
+     * 
+     * @param office
+     * @param accountTypeToBeDebited
+     *            Enum of the placeholder GLAccount to be debited
+     * @param accountTypeToBeCredited
+     *            Enum of the placeholder of the GLAccount to be credited
+     * @param loanProductId
+     * @param paymentTypeId
+     * @param loanId
+     * @param transactionId
+     * @param transactionDate
+     * @param amount
+     * @param isReversal
+     */
+    public void createAccrualBasedJournalEntriesAndReversalsForLoanCharges(final Office office, final String currencyCode,
+            final Integer accountTypeToBeDebited, final Integer accountTypeToBeCredited, final Long loanProductId, final Long loanId,
+            final String transactionId, final Date transactionDate, final BigDecimal totalAmount, final Boolean isReversal,
+            final List<ChargePaymentDTO> chargePaymentDTOs) {
+
+        GLAccount receivableAccount = getLinkedGLAccountForLoanCharges(loanProductId, accountTypeToBeDebited, null);
+        final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<>();
+        for (final ChargePaymentDTO chargePaymentDTO : chargePaymentDTOs) {
+            final Long chargeId = chargePaymentDTO.getChargeId();
+            final GLAccount chargeSpecificAccount = getLinkedGLAccountForLoanCharges(loanProductId, accountTypeToBeCredited, chargeId);
+            BigDecimal chargeSpecificAmount = chargePaymentDTO.getAmount();
+
+            // adjust net credit amount if the account is already present in the
+            // map
+            if (creditDetailsMap.containsKey(chargeSpecificAccount)) {
+                final BigDecimal existingAmount = creditDetailsMap.get(chargeSpecificAccount);
+                chargeSpecificAmount = chargeSpecificAmount.add(existingAmount);
+            }
+            creditDetailsMap.put(chargeSpecificAccount, chargeSpecificAmount);
+        }
+
+        BigDecimal totalCreditedAmount = BigDecimal.ZERO;
+        for (final Map.Entry<GLAccount, BigDecimal> entry : creditDetailsMap.entrySet()) {
+            final GLAccount account = entry.getKey();
+            final BigDecimal amount = entry.getValue();
+            totalCreditedAmount = totalCreditedAmount.add(amount);
+            if (isReversal) {
+                createDebitJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+                createCreditJournalEntryForLoan(office, currencyCode, receivableAccount, loanId, transactionId, transactionDate, amount);
+            } else {
+                createDebitJournalEntryForLoan(office, currencyCode, receivableAccount, loanId, transactionId, transactionDate, amount);
+                createCreditJournalEntryForLoan(office, currencyCode, account, loanId, transactionId, transactionDate, amount);
+            }
+        }
+
+        if (totalAmount.compareTo(totalCreditedAmount) != 0) { throw new PlatformDataIntegrityException(
+                "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
+                "Meltdown in advanced accounting...sum of all charges is not equal to the fee charge for a transaction",
+                totalCreditedAmount, totalAmount); }
     }
 
     /**
@@ -239,15 +371,15 @@ public class AccountingProcessorHelper {
      * @param isReversal
      */
     public void createCashBasedJournalEntriesAndReversalsForSavings(final Office office, final String currencyCode,
-            final CASH_ACCOUNTS_FOR_SAVINGS accountTypeToBeDebited, final CASH_ACCOUNTS_FOR_SAVINGS accountTypeToBeCredited,
-            final Long savingsProductId, final Long paymentTypeId, final Long loanId, final String transactionId,
-            final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
-        int accountTypeToDebitId = accountTypeToBeDebited.getValue();
-        int accountTypeToCreditId = accountTypeToBeCredited.getValue();
+            final Integer accountTypeToBeDebited, final Integer accountTypeToBeCredited, final Long savingsProductId,
+            final Long paymentTypeId, final Long loanId, final String transactionId, final Date transactionDate, final BigDecimal amount,
+            final Boolean isReversal) {
+        int accountTypeToDebitId = accountTypeToBeDebited;
+        int accountTypeToCreditId = accountTypeToBeCredited;
         // reverse debits and credits for reversals
         if (isReversal) {
-            accountTypeToDebitId = accountTypeToBeCredited.getValue();
-            accountTypeToCreditId = accountTypeToBeDebited.getValue();
+            accountTypeToDebitId = accountTypeToBeCredited;
+            accountTypeToCreditId = accountTypeToBeDebited;
         }
         createJournalEntriesForSavings(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, savingsProductId, paymentTypeId,
                 loanId, transactionId, transactionDate, amount);
@@ -274,18 +406,17 @@ public class AccountingProcessorHelper {
      * @param isReversal
      */
     public void createCashBasedJournalEntriesAndReversalsForLoan(final Office office, final String currencyCode,
-            final CASH_ACCOUNTS_FOR_LOAN accountTypeToBeDebited, final CASH_ACCOUNTS_FOR_LOAN accountTypeToBeCredited,
-            final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId, final Date transactionDate,
-            final BigDecimal amount, final Boolean isReversal) {
-        int accountTypeToDebitId = accountTypeToBeDebited.getValue();
-        int accountTypeToCreditId = accountTypeToBeCredited.getValue();
+            final Integer accountTypeToBeDebited, final Integer accountTypeToBeCredited, final Long loanProductId, final Long paymentTypeId,
+            final Long loanId, final String transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
+        int accountTypeToDebitId = accountTypeToBeDebited;
+        int accountTypeToCreditId = accountTypeToBeCredited;
         // reverse debits and credits for reversals
         if (isReversal) {
-            accountTypeToDebitId = accountTypeToBeCredited.getValue();
-            accountTypeToCreditId = accountTypeToBeDebited.getValue();
+            accountTypeToDebitId = accountTypeToBeCredited;
+            accountTypeToCreditId = accountTypeToBeDebited;
         }
-        createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, loanProductId, paymentTypeId,
-                loanId, transactionId, transactionDate, amount);
+        createJournalEntriesForLoan(office, currencyCode, accountTypeToDebitId, accountTypeToCreditId, loanProductId, paymentTypeId, loanId,
+                transactionId, transactionDate, amount);
     }
 
     public void createCreditJournalEntryOrReversalForLoan(final Office office, final String currencyCode,
@@ -301,22 +432,6 @@ public class AccountingProcessorHelper {
             final String transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
         final int accountMappingTypeId = accountMappingType.getValue();
         createCreditJournalEntryOrReversalForLoan(office, currencyCode, accountMappingTypeId, loanProductId, paymentTypeId, loanId,
-                transactionId, transactionDate, amount, isReversal);
-    }
-
-    public void createDebitJournalEntryOrReversalForLoan(final Office office, final String currencyCode,
-            final CASH_ACCOUNTS_FOR_LOAN accountMappingType, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
-        final int accountMappingTypeId = accountMappingType.getValue();
-        createDebitJournalEntryOrReversalForLoan(office, currencyCode, accountMappingTypeId, loanProductId, paymentTypeId, loanId,
-                transactionId, transactionDate, amount, isReversal);
-    }
-
-    public void createDebitJournalEntryOrReversalForLoan(final Office office, final String currencyCode,
-            final ACCRUAL_ACCOUNTS_FOR_LOAN accountMappingType, final Long loanProductId, final Long paymentTypeId, final Long loanId,
-            final String transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
-        final int accountMappingTypeId = accountMappingType.getValue();
-        createDebitJournalEntryOrReversalForLoan(office, currencyCode, accountMappingTypeId, loanProductId, paymentTypeId, loanId,
                 transactionId, transactionDate, amount, isReversal);
     }
 
@@ -330,8 +445,9 @@ public class AccountingProcessorHelper {
          * transaction Date
          **/
         if (latestGLClosure != null) {
-            if (latestGLClosure.getClosingDate().after(transactionDate) || latestGLClosure.getClosingDate().equals(transactionDate)) { throw new JournalEntryInvalidException(
-                    GL_JOURNAL_ENTRY_INVALID_REASON.ACCOUNTING_CLOSED, latestGLClosure.getClosingDate(), null, null); }
+            if (latestGLClosure.getClosingDate().after(transactionDate)
+                    || latestGLClosure.getClosingDate().equals(transactionDate)) { throw new JournalEntryInvalidException(
+                            GL_JOURNAL_ENTRY_INVALID_REASON.ACCOUNTING_CLOSED, latestGLClosure.getClosingDate(), null, null); }
         }
     }
 
@@ -361,7 +477,7 @@ public class AccountingProcessorHelper {
         createCreditJournalEntryForSavings(office, currencyCode, creditAccount, savingsId, transactionId, transactionDate, amount);
     }
 
-    private void createDebitJournalEntryOrReversalForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
+    public void createDebitJournalEntryOrReversalForLoan(final Office office, final String currencyCode, final int accountMappingTypeId,
             final Long loanProductId, final Long paymentTypeId, final Long loanId, final String transactionId, final Date transactionDate,
             final BigDecimal amount, final Boolean isReversal) {
         final GLAccount account = getLinkedGLAccountForLoanProduct(loanProductId, accountMappingTypeId, paymentTypeId);
@@ -380,7 +496,7 @@ public class AccountingProcessorHelper {
          * Map to track each account and the net credit to be made for a
          * particular account
          ***/
-        final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<GLAccount, BigDecimal>();
+        final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<>();
         for (final ChargePaymentDTO chargePaymentDTO : chargePaymentDTOs) {
             final Long chargeId = chargePaymentDTO.getChargeId();
             final GLAccount chargeSpecificAccount = getLinkedGLAccountForLoanCharges(loanProductId, accountMappingTypeId, chargeId);
@@ -489,21 +605,21 @@ public class AccountingProcessorHelper {
         }
     }
 
-    private void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final GLAccount account,
-            final Long loanId, final String transactionId, final Date transactionDate, final BigDecimal amount) {
+    private void createCreditJournalEntryForClientPayments(final Office office, final String currencyCode, final GLAccount account,
+            final Long clientId, final Long transactionId, final Date transactionDate, final BigDecimal amount) {
         final boolean manualEntry = false;
         LoanTransaction loanTransaction = null;
         SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
         final PaymentDetail paymentDetail = null;
-        String modifiedTransactionId = transactionId;
-        if (StringUtils.isNumeric(transactionId)) {
-            long id = Long.parseLong(transactionId);
-            loanTransaction = this.loanTransactionRepository.findOne(id);
-            modifiedTransactionId = LOAN_TRANSACTION_IDENTIFIER + transactionId;
-        }
+
+        clientTransaction = this.clientTransactionRepository.findOneWithNotFoundDetection(clientId, transactionId);
+
+        String modifiedTransactionId = transactionId.toString();
+        modifiedTransactionId = CLIENT_TRANSACTION_IDENTIFIER + transactionId;
         final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
-                manualEntry, transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransaction, savingsAccountTransaction);
+                manualEntry, transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.CLIENT.getValue(), clientId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
         this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 
@@ -512,6 +628,7 @@ public class AccountingProcessorHelper {
         final boolean manualEntry = false;
         LoanTransaction loanTransaction = null;
         SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
         final PaymentDetail paymentDetail = null;
         String modifiedTransactionId = transactionId;
         if (StringUtils.isNumeric(transactionId)) {
@@ -521,15 +638,62 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
                 manualEntry, transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.SAVING.getValue(), savingsId,
-                null, loanTransaction, savingsAccountTransaction);
+                null, loanTransaction, savingsAccountTransaction, clientTransaction);
         this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 
+    private void createCreditJournalEntryForLoan(final Office office, final String currencyCode, final GLAccount account, final Long loanId,
+            final String transactionId, final Date transactionDate, final BigDecimal amount) {
+        final boolean manualEntry = false;
+        LoanTransaction loanTransaction = null;
+        SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
+        final PaymentDetail paymentDetail = null;
+        String modifiedTransactionId = transactionId;
+        if (StringUtils.isNumeric(transactionId)) {
+            long id = Long.parseLong(transactionId);
+            loanTransaction = this.loanTransactionRepository.findOne(id);
+            modifiedTransactionId = LOAN_TRANSACTION_IDENTIFIER + transactionId;
+        }
+        final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
+                manualEntry, transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
+        this.glJournalEntryRepository.saveAndFlush(journalEntry);
+    }
+
+    public void createProvisioningDebitJournalEntry(Date transactionDate, Long provisioningentryId, Office office, String currencyCode, GLAccount account,BigDecimal amount) {
+        LoanTransaction loanTransaction = null;
+        SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
+        PaymentDetail paymentDetail = null ;
+        final boolean manualEntry = false;
+        String modifiedTransactionId = PROVISIONING_TRANSACTION_IDENTIFIER + provisioningentryId;
+        final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
+                manualEntry, transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.PROVISIONING.getValue(), provisioningentryId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
+        
+        this.glJournalEntryRepository.saveAndFlush(journalEntry);
+    }
+    
+    public void createProvisioningCreditJournalEntry(Date transactionDate, Long provisioningentryId, Office office, String currencyCode, GLAccount account, BigDecimal amount) {
+        LoanTransaction loanTransaction = null;
+        SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
+        PaymentDetail paymentDetail = null ;
+        final boolean manualEntry = false;
+        String modifiedTransactionId = PROVISIONING_TRANSACTION_IDENTIFIER + provisioningentryId;
+        final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
+                manualEntry, transactionDate, JournalEntryType.CREDIT, amount, null, PortfolioProductType.PROVISIONING.getValue(), provisioningentryId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
+        this.glJournalEntryRepository.saveAndFlush(journalEntry);
+    }
+    
     private void createDebitJournalEntryForLoan(final Office office, final String currencyCode, final GLAccount account, final Long loanId,
             final String transactionId, final Date transactionDate, final BigDecimal amount) {
         final boolean manualEntry = false;
         LoanTransaction loanTransaction = null;
         SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
         final PaymentDetail paymentDetail = null;
         String modifiedTransactionId = transactionId;
         if (StringUtils.isNumeric(transactionId)) {
@@ -539,7 +703,7 @@ public class AccountingProcessorHelper {
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
                 manualEntry, transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.LOAN.getValue(), loanId, null,
-                loanTransaction, savingsAccountTransaction);
+                loanTransaction, savingsAccountTransaction, clientTransaction);
         this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 
@@ -548,6 +712,7 @@ public class AccountingProcessorHelper {
         final boolean manualEntry = false;
         LoanTransaction loanTransaction = null;
         SavingsAccountTransaction savingsAccountTransaction = null;
+        ClientTransaction clientTransaction = null;
         final PaymentDetail paymentDetail = null;
         String modifiedTransactionId = transactionId;
         if (StringUtils.isNumeric(transactionId)) {
@@ -556,43 +721,70 @@ public class AccountingProcessorHelper {
             modifiedTransactionId = SAVINGS_TRANSACTION_IDENTIFIER + transactionId;
         }
         final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
-                manualEntry, transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.SAVING.getValue(), savingsId,
-                null, loanTransaction, savingsAccountTransaction);
+                manualEntry, transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.SAVING.getValue(), savingsId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
+        this.glJournalEntryRepository.saveAndFlush(journalEntry);
+    }
+
+    private void createDebitJournalEntryForClientPayments(final Office office, final String currencyCode, final GLAccount account,
+            final Long clientId, final Long transactionId, final Date transactionDate, final BigDecimal amount) {
+        final boolean manualEntry = false;
+        ClientTransaction clientTransaction = null;
+        LoanTransaction loanTransaction = null;
+        SavingsAccountTransaction savingsAccountTransaction = null;
+        final PaymentDetail paymentDetail = null;
+
+        clientTransaction = this.clientTransactionRepository.findOneWithNotFoundDetection(clientId, transactionId);
+        String modifiedTransactionId = transactionId.toString();
+        modifiedTransactionId = CLIENT_TRANSACTION_IDENTIFIER + transactionId;
+
+        final JournalEntry journalEntry = JournalEntry.createNew(office, paymentDetail, account, currencyCode, modifiedTransactionId,
+                manualEntry, transactionDate, JournalEntryType.DEBIT, amount, null, PortfolioProductType.CLIENT.getValue(), clientId, null,
+                loanTransaction, savingsAccountTransaction, clientTransaction);
         this.glJournalEntryRepository.saveAndFlush(journalEntry);
     }
 
     private GLAccount getLinkedGLAccountForLoanProduct(final Long loanProductId, final int accountMappingTypeId, final Long paymentTypeId) {
-        ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
-                PortfolioProductType.LOAN.getValue(), accountMappingTypeId);
-        /****
-         * Get more specific mapping for FUND source accounts (based on payment
-         * channels). Note that fund source placeholder ID would be same for
-         * both cash and accrual accounts
-         ***/
-        if (accountMappingTypeId == CASH_ACCOUNTS_FOR_LOAN.FUND_SOURCE.getValue()) {
-            final ProductToGLAccountMapping paymentChannelSpecificAccountMapping = this.accountMappingRepository
-                    .findByProductIdAndProductTypeAndFinancialAccountTypeAndPaymentTypeId(loanProductId,
-                            PortfolioProductType.LOAN.getValue(), accountMappingTypeId, paymentTypeId);
-            if (paymentChannelSpecificAccountMapping != null) {
-                accountMapping = paymentChannelSpecificAccountMapping;
+        GLAccount glAccount = null;
+        if (isOrganizationAccount(accountMappingTypeId)) {
+            FinancialActivityAccount financialActivityAccount = this.financialActivityAccountRepository
+                    .findByFinancialActivityTypeWithNotFoundDetection(accountMappingTypeId);
+            glAccount = financialActivityAccount.getGlAccount();
+        } else {
+            ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
+                    PortfolioProductType.LOAN.getValue(), accountMappingTypeId);
+
+            /****
+             * Get more specific mapping for FUND source accounts (based on
+             * payment channels). Note that fund source placeholder ID would be
+             * same for both cash and accrual accounts
+             ***/
+            if (accountMappingTypeId == CASH_ACCOUNTS_FOR_LOAN.FUND_SOURCE.getValue()) {
+                final ProductToGLAccountMapping paymentChannelSpecificAccountMapping = this.accountMappingRepository
+                        .findByProductIdAndProductTypeAndFinancialAccountTypeAndPaymentTypeId(loanProductId,
+                                PortfolioProductType.LOAN.getValue(), accountMappingTypeId, paymentTypeId);
+                if (paymentChannelSpecificAccountMapping != null) {
+                    accountMapping = paymentChannelSpecificAccountMapping;
+                }
             }
+
+            if (accountMapping == null) { throw new ProductToGLAccountMappingNotFoundException(PortfolioProductType.LOAN, loanProductId,
+                    ACCRUAL_ACCOUNTS_FOR_LOAN.OVERPAYMENT.toString()); }
+            glAccount = accountMapping.getGlAccount();
         }
-
-        if (accountMapping == null) { throw new ProductToGLAccountMappingNotFoundException(PortfolioProductType.LOAN, loanProductId,
-                ACCRUAL_ACCOUNTS_FOR_LOAN.OVERPAYMENT.toString()); }
-
-        return accountMapping.getGlAccount();
+        return glAccount;
     }
 
     private GLAccount getLinkedGLAccountForLoanCharges(final Long loanProductId, final int accountMappingTypeId, final Long chargeId) {
         ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(loanProductId,
                 PortfolioProductType.LOAN.getValue(), accountMappingTypeId);
-        /*****
-         * Get more specific mappings for Charges and penalties (based on the
-         * actual charge /penalty coupled with the loan product). Note the
-         * income from fees and income from penalties placeholder ID would be
-         * the same for both cash and accrual based accounts
-         *****/
+                /*****
+                 * Get more specific mappings for Charges and penalties (based
+                 * on the actual charge /penalty coupled with the loan product).
+                 * Note the income from fees and income from penalties
+                 * placeholder ID would be the same for both cash and accrual
+                 * based accounts
+                 *****/
 
         // Vishwas TODO: remove this condition as it should always be true
         if (accountMappingTypeId == CASH_ACCOUNTS_FOR_LOAN.INCOME_FROM_FEES.getValue()
@@ -607,15 +799,17 @@ public class AccountingProcessorHelper {
         return accountMapping.getGlAccount();
     }
 
-    private GLAccount getLinkedGLAccountForSavingsCharges(final Long savingsProductId, final int accountMappingTypeId, final Long chargeId) {
+    private GLAccount getLinkedGLAccountForSavingsCharges(final Long savingsProductId, final int accountMappingTypeId,
+            final Long chargeId) {
         ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(savingsProductId,
                 PortfolioProductType.SAVING.getValue(), accountMappingTypeId);
-        /*****
-         * Get more specific mappings for Charges and penalties (based on the
-         * actual charge /penalty coupled with the loan product). Note the
-         * income from fees and income from penalties placeholder ID would be
-         * the same for both cash and accrual based accounts
-         *****/
+                /*****
+                 * Get more specific mappings for Charges and penalties (based
+                 * on the actual charge /penalty coupled with the loan product).
+                 * Note the income from fees and income from penalties
+                 * placeholder ID would be the same for both cash and accrual
+                 * based accounts
+                 *****/
 
         // Vishwas TODO: remove this condition as it should always be true
         if (accountMappingTypeId == CASH_ACCOUNTS_FOR_SAVINGS.INCOME_FROM_FEES.getValue()
@@ -632,21 +826,89 @@ public class AccountingProcessorHelper {
 
     private GLAccount getLinkedGLAccountForSavingsProduct(final Long savingsProductId, final int accountMappingTypeId,
             final Long paymentTypeId) {
-        ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(savingsProductId,
-                PortfolioProductType.SAVING.getValue(), accountMappingTypeId);
-        /****
-         * Get more specific mapping for FUND source accounts (based on payment
-         * channels). Note that fund source placeholder ID would be same for
-         * both cash and accrual accounts
+        GLAccount glAccount = null;
+        if (isOrganizationAccount(accountMappingTypeId)) {
+            FinancialActivityAccount financialActivityAccount = this.financialActivityAccountRepository
+                    .findByFinancialActivityTypeWithNotFoundDetection(accountMappingTypeId);
+            glAccount = financialActivityAccount.getGlAccount();
+        } else {
+            ProductToGLAccountMapping accountMapping = this.accountMappingRepository.findCoreProductToFinAccountMapping(savingsProductId,
+                    PortfolioProductType.SAVING.getValue(), accountMappingTypeId);
+            /****
+             * Get more specific mapping for FUND source accounts (based on
+             * payment channels). Note that fund source placeholder ID would be
+             * same for both cash and accrual accounts
+             ***/
+            if (accountMappingTypeId == CASH_ACCOUNTS_FOR_SAVINGS.SAVINGS_REFERENCE.getValue()) {
+                final ProductToGLAccountMapping paymentChannelSpecificAccountMapping = this.accountMappingRepository
+                        .findByProductIdAndProductTypeAndFinancialAccountTypeAndPaymentTypeId(savingsProductId,
+                                PortfolioProductType.SAVING.getValue(), accountMappingTypeId, paymentTypeId);
+                if (paymentChannelSpecificAccountMapping != null) {
+                    accountMapping = paymentChannelSpecificAccountMapping;
+                }
+            }
+            glAccount = accountMapping.getGlAccount();
+        }
+        return glAccount;
+    }
+
+    private boolean isOrganizationAccount(final int accountMappingTypeId) {
+        boolean isOrganizationAccount = false;
+        if (FINANCIAL_ACTIVITY.fromInt(accountMappingTypeId) != null) {
+            isOrganizationAccount = true;
+        }
+        return isOrganizationAccount;
+    }
+
+    public BigDecimal createCreditJournalEntryOrReversalForClientPayments(final Office office, final String currencyCode,
+            final Long clientId, final Long transactionId, final Date transactionDate, final Boolean isReversal,
+            final List<ClientChargePaymentDTO> clientChargePaymentDTOs) {
+        /***
+         * Map to track each account affected and the net credit to be made for
+         * a particular account
          ***/
-        if (accountMappingTypeId == CASH_ACCOUNTS_FOR_SAVINGS.SAVINGS_REFERENCE.getValue()) {
-            final ProductToGLAccountMapping paymentChannelSpecificAccountMapping = this.accountMappingRepository
-                    .findByProductIdAndProductTypeAndFinancialAccountTypeAndPaymentTypeId(savingsProductId,
-                            PortfolioProductType.SAVING.getValue(), accountMappingTypeId, paymentTypeId);
-            if (paymentChannelSpecificAccountMapping != null) {
-                accountMapping = paymentChannelSpecificAccountMapping;
+        final Map<GLAccount, BigDecimal> creditDetailsMap = new LinkedHashMap<>();
+        for (final ClientChargePaymentDTO clientChargePaymentDTO : clientChargePaymentDTOs) {
+            if (clientChargePaymentDTO.getIncomeAccountId() != null) {
+                final GLAccount chargeSpecificAccount = getGLAccountById(clientChargePaymentDTO.getIncomeAccountId());
+                BigDecimal chargeSpecificAmount = clientChargePaymentDTO.getAmount();
+
+                // adjust net credit amount if the account is already present in
+                // the map
+                if (creditDetailsMap.containsKey(chargeSpecificAccount)) {
+                    final BigDecimal existingAmount = creditDetailsMap.get(chargeSpecificAccount);
+                    chargeSpecificAmount = chargeSpecificAmount.add(existingAmount);
+                }
+                creditDetailsMap.put(chargeSpecificAccount, chargeSpecificAmount);
             }
         }
-        return accountMapping.getGlAccount();
+
+        BigDecimal totalCreditedAmount = BigDecimal.ZERO;
+        for (final Map.Entry<GLAccount, BigDecimal> entry : creditDetailsMap.entrySet()) {
+            final GLAccount account = entry.getKey();
+            final BigDecimal amount = entry.getValue();
+            totalCreditedAmount = totalCreditedAmount.add(amount);
+            if (isReversal) {
+                createDebitJournalEntryForClientPayments(office, currencyCode, account, clientId, transactionId, transactionDate, amount);
+            } else {
+                createCreditJournalEntryForClientPayments(office, currencyCode, account, clientId, transactionId, transactionDate, amount);
+            }
+        }
+        return totalCreditedAmount;
+    }
+
+    public void createDebitJournalEntryOrReversalForClientChargePayments(final Office office, final String currencyCode,
+            final Long clientId, final Long transactionId, final Date transactionDate, final BigDecimal amount, final Boolean isReversal) {
+        final GLAccount account = financialActivityAccountRepository
+                .findByFinancialActivityTypeWithNotFoundDetection(FINANCIAL_ACTIVITY.ASSET_FUND_SOURCE.getValue()).getGlAccount();
+        if (isReversal) {
+            createCreditJournalEntryForClientPayments(office, currencyCode, account, clientId, transactionId, transactionDate, amount);
+        } else {
+            createDebitJournalEntryForClientPayments(office, currencyCode, account, clientId, transactionId, transactionDate, amount);
+        }
+    }
+
+    private GLAccount getGLAccountById(final Long accountId) {
+        return this.accountRepositoryWrapper.findOneWithNotFoundDetection(accountId);
     }
 }

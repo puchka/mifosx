@@ -15,7 +15,7 @@ public class CodeConstants {
      * value
      ***/
     public static enum CODEVALUE_JSON_INPUT_PARAMS {
-        CODEVALUE_ID("id"), NAME("name"), POSITION("position");
+        CODEVALUE_ID("id"), NAME("name"), POSITION("position"), DESCRIPTION("description");
 
         private final String value;
 
@@ -23,7 +23,7 @@ public class CodeConstants {
             this.value = value;
         }
 
-        private static final Set<String> values = new HashSet<String>();
+        private static final Set<String> values = new HashSet<>();
         static {
             for (final CODEVALUE_JSON_INPUT_PARAMS type : CODEVALUE_JSON_INPUT_PARAMS.values()) {
                 values.add(type.value);

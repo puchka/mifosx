@@ -14,11 +14,17 @@ public interface LoanProductReadPlatformService {
 
     Collection<LoanProductData> retrieveAllLoanProducts();
 
+    Collection<LoanProductData> retrieveAllLoanProductsForLookup(String inClass);
+    
     Collection<LoanProductData> retrieveAllLoanProductsForLookup();
+
+    Collection<LoanProductData> retrieveAllLoanProductsForLookup(boolean activeOnly);
 
     LoanProductData retrieveLoanProduct(Long productId);
 
     LoanProductData retrieveNewLoanProductDetails();
+
+    Collection<LoanProductData> retrieveAllLoanProductsForCurrency(String currencyCode);
 
     Collection<LoanProductData> retrieveAvailableLoanProductsForMix();
 

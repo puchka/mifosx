@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.template.api;
 
 import java.io.IOException;
@@ -51,8 +56,8 @@ import org.springframework.stereotype.Component;
 @Scope("singleton")
 public class TemplatesApiResource {
 
-    private final Set<String> RESPONSE_TEMPLATES_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("id"));
-    private final Set<String> RESPONSE_TEMPLATE_DATA_PARAMETERS = new HashSet<String>(Arrays.asList("id", "entities", "types", "template"));
+    private final Set<String> RESPONSE_TEMPLATES_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id"));
+    private final Set<String> RESPONSE_TEMPLATE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("id", "entities", "types", "template"));
     private final String RESOURCE_NAME_FOR_PERMISSION = "template";
 
     private final PlatformSecurityContext context;
@@ -65,8 +70,9 @@ public class TemplatesApiResource {
 
     @Autowired
     public TemplatesApiResource(final PlatformSecurityContext context, final DefaultToApiJsonSerializer<Template> toApiJsonSerializer,
-            final DefaultToApiJsonSerializer<TemplateData> templateDataApiJsonSerializer, final ApiRequestParameterHelper apiRequestParameterHelper,
-            final TemplateDomainService templateService, final TemplateMergeService templateMergeService,
+            final DefaultToApiJsonSerializer<TemplateData> templateDataApiJsonSerializer,
+            final ApiRequestParameterHelper apiRequestParameterHelper, final TemplateDomainService templateService,
+            final TemplateMergeService templateMergeService,
             final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService) {
 
         this.context = context;
@@ -84,8 +90,9 @@ public class TemplatesApiResource {
 
         this.context.authenticatedUser().validateHasReadPermission(this.RESOURCE_NAME_FOR_PERMISSION);
 
-        // FIXME - we dont use the ORM when doing fetches - we write SQL and fetch through JDBC returning data to be serialized to JSON
-        List<Template> templates = new ArrayList<Template>();
+        // FIXME - we dont use the ORM when doing fetches - we write SQL and
+        // fetch through JDBC returning data to be serialized to JSON
+        List<Template> templates = new ArrayList<>();
 
         if (typeId != -1 && entityId != -1) {
             templates = this.templateService.getAllByEntityAndType(TemplateEntity.values()[entityId], TemplateType.values()[typeId]);
@@ -173,11 +180,10 @@ public class TemplatesApiResource {
         final Template template = this.templateService.findOneById(templateId);
 
         @SuppressWarnings("unchecked")
-        final
-        HashMap<String, Object> result = new ObjectMapper().readValue(apiRequestBodyAsJson, HashMap.class);
+        final HashMap<String, Object> result = new ObjectMapper().readValue(apiRequestBodyAsJson, HashMap.class);
 
         final MultivaluedMap<String, String> parameters = uriInfo.getQueryParameters();
-        final Map<String, Object> parametersMap = new HashMap<String, Object>();
+        final Map<String, Object> parametersMap = new HashMap<>();
         for (final Map.Entry<String, List<String>> entry : parameters.entrySet()) {
 
             if (entry.getValue().size() == 1) {

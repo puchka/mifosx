@@ -10,8 +10,14 @@ import java.util.Map;
 
 public enum CalendarEntityType {
 
-    CLIENTS(1, "calendarEntityType.clients"), GROUPS(2, "calendarEntityType.groups"), LOANS(3, "calendarEntityType.loans"), CENTERS(4,
-            "calendarEntityType.centers");
+    INVALID(0, "calendarEntityType.invalid"), //
+    CLIENTS(1, "calendarEntityType.clients"), //
+    GROUPS(2, "calendarEntityType.groups"), //
+    LOANS(3, "calendarEntityType.loans"), //
+    CENTERS(4, "calendarEntityType.centers"), //
+    SAVINGS(5, "calendarEntityType.savings"), //
+    LOAN_RECALCULATION_REST_DETAIL(6, "calendarEntityType.loan.recalculation.rest.detail"), //
+    LOAN_RECALCULATION_COMPOUNDING_DETAIL(7, "calendarEntityType.loan.recalculation.compounding.detail");
 
     private final Integer value;
     private final String code;
@@ -29,7 +35,7 @@ public enum CalendarEntityType {
         return this.code;
     }
 
-    private static final Map<Integer, CalendarEntityType> intToEnumMap = new HashMap<Integer, CalendarEntityType>();
+    private static final Map<Integer, CalendarEntityType> intToEnumMap = new HashMap<>();
     private static int minValue;
     private static int maxValue;
     static {
@@ -114,4 +120,29 @@ public enum CalendarEntityType {
     public boolean isClient() {
         return this.value.equals(CalendarEntityType.CLIENTS.getValue());
     }
+
+    private static final Map<String, CalendarEntityType> entityNameToEnumMap = new HashMap<>();
+
+    static {
+        for (final CalendarEntityType entityType : CalendarEntityType.values()) {
+            entityNameToEnumMap.put(entityType.name().toLowerCase(), entityType);
+        }
+    }
+
+    public static CalendarEntityType getEntityType(String entityType) {
+        return entityNameToEnumMap.get(entityType.toLowerCase());
+    }
+
+    public static boolean isSavings(final Integer value) {
+        return CalendarEntityType.SAVINGS.value.equals(value) ? true : false;
+    }
+
+    public static boolean isSavings(final String name) {
+        return CalendarEntityType.SAVINGS.name().equalsIgnoreCase(name) ? true : false;
+    }
+
+    public boolean isSavings() {
+        return this.value.equals(CalendarEntityType.SAVINGS.getValue());
+    }
+
 }

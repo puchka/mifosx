@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.loanaccount;
 
 import org.joda.time.LocalDate;
@@ -19,6 +24,7 @@ public class LoanRepaymentScheduleInstallmentBuilder {
     private final Money feeCharges = new MoneyBuilder().build();
     private final Money penaltyCharges = new MoneyBuilder().build();
     private boolean completed = false;
+    private boolean recalculatedInterestComponent = false;
 
     public LoanRepaymentScheduleInstallmentBuilder(final MonetaryCurrency currencyDetail) {
         this.currencyDetail = currencyDetail;
@@ -29,7 +35,7 @@ public class LoanRepaymentScheduleInstallmentBuilder {
     public LoanRepaymentScheduleInstallment build() {
         final LoanRepaymentScheduleInstallment installment = new LoanRepaymentScheduleInstallment(this.loan, this.installmentNumber,
                 this.fromDate, this.dueDate, this.principal.getAmount(), this.interest.getAmount(), this.feeCharges.getAmount(),
-                this.penaltyCharges.getAmount());
+                this.penaltyCharges.getAmount(), this.recalculatedInterestComponent);
         if (this.completed) {
             installment.payPrincipalComponent(this.latestTransactionDate, this.principal);
             installment.payInterestComponent(this.latestTransactionDate, this.interest);

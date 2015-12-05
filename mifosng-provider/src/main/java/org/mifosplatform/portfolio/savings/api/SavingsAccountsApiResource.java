@@ -36,7 +36,8 @@ import org.mifosplatform.infrastructure.core.serialization.ApiRequestJsonSeriali
 import org.mifosplatform.infrastructure.core.serialization.DefaultToApiJsonSerializer;
 import org.mifosplatform.infrastructure.core.service.Page;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
-import org.mifosplatform.portfolio.group.service.SearchParameters;
+import org.mifosplatform.infrastructure.core.service.SearchParameters;
+import org.mifosplatform.portfolio.savings.DepositAccountType;
 import org.mifosplatform.portfolio.savings.SavingsApiConstants;
 import org.mifosplatform.portfolio.savings.data.SavingsAccountChargeData;
 import org.mifosplatform.portfolio.savings.data.SavingsAccountData;
@@ -129,15 +130,18 @@ public class SavingsAccountsApiResource {
     @Produces({ MediaType.APPLICATION_JSON })
     public String retrieveOne(@PathParam("accountId") final Long accountId,
             @DefaultValue("false") @QueryParam("staffInSelectedOfficeOnly") final boolean staffInSelectedOfficeOnly,
-            @Context final UriInfo uriInfo) {
+            @DefaultValue("all") @QueryParam("chargeStatus") final String chargeStatus, @Context final UriInfo uriInfo) {
 
         this.context.authenticatedUser().validateHasReadPermission(SavingsApiConstants.SAVINGS_ACCOUNT_RESOURCE_NAME);
 
+        if (!(is(chargeStatus, "all") || is(chargeStatus, "active") || is(chargeStatus, "inactive"))) { throw new UnrecognizedQueryParamException(
+                "status", chargeStatus, new Object[] { "all", "active", "inactive" }); }
+
         final SavingsAccountData savingsAccount = this.savingsAccountReadPlatformService.retrieveOne(accountId);
 
-        final Set<String> mandatoryResponseParameters = new HashSet<String>();
+        final Set<String> mandatoryResponseParameters = new HashSet<>();
         final SavingsAccountData savingsAccountTemplate = populateTemplateAndAssociations(accountId, savingsAccount,
-                staffInSelectedOfficeOnly, uriInfo, mandatoryResponseParameters);
+                staffInSelectedOfficeOnly, chargeStatus, uriInfo, mandatoryResponseParameters);
 
         final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters(),
                 mandatoryResponseParameters);
@@ -146,7 +150,8 @@ public class SavingsAccountsApiResource {
     }
 
     private SavingsAccountData populateTemplateAndAssociations(final Long accountId, final SavingsAccountData savingsAccount,
-            final boolean staffInSelectedOfficeOnly, final UriInfo uriInfo, final Set<String> mandatoryResponseParameters) {
+            final boolean staffInSelectedOfficeOnly, final String chargeStatus, final UriInfo uriInfo,
+            final Set<String> mandatoryResponseParameters) {
 
         Collection<SavingsAccountTransactionData> transactions = null;
         Collection<SavingsAccountChargeData> charges = null;
@@ -161,7 +166,7 @@ public class SavingsAccountsApiResource {
             if (associationParameters.contains(SavingsApiConstants.transactions)) {
                 mandatoryResponseParameters.add(SavingsApiConstants.transactions);
                 final Collection<SavingsAccountTransactionData> currentTransactions = this.savingsAccountReadPlatformService
-                        .retrieveAllTransactions(accountId);
+                        .retrieveAllTransactions(accountId, DepositAccountType.SAVINGS_DEPOSIT);
                 if (!CollectionUtils.isEmpty(currentTransactions)) {
                     transactions = currentTransactions;
                 }
@@ -170,7 +175,7 @@ public class SavingsAccountsApiResource {
             if (associationParameters.contains(SavingsApiConstants.charges)) {
                 mandatoryResponseParameters.add(SavingsApiConstants.charges);
                 final Collection<SavingsAccountChargeData> currentCharges = this.savingsAccountChargeReadPlatformService
-                        .retrieveSavingsAccountCharges(accountId);
+                        .retrieveSavingsAccountCharges(accountId, chargeStatus);
                 if (!CollectionUtils.isEmpty(currentCharges)) {
                     charges = currentCharges;
                 }
@@ -243,12 +248,21 @@ public class SavingsAccountsApiResource {
         } else if (is(commandParam, "close")) {
             final CommandWrapper commandRequest = builder.closeSavingsAccountApplication(accountId).build();
             result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        } else if (is(commandParam, "assignSavingsOfficer")) {
+            final CommandWrapper commandRequest = builder.assignSavingsOfficer(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            return this.toApiJsonSerializer.serialize(result);
+        } else if (is(commandParam, "unassignSavingsOfficer")) {
+            final CommandWrapper commandRequest = builder.unassignSavingsOfficer(accountId).build();
+            result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
+            return this.toApiJsonSerializer.serialize(result);
         }
 
         if (result == null) {
             //
-            throw new UnrecognizedQueryParamException("command", commandParam, new Object[] { "reject", "withdrawnByApplicant", "approve",
-                    "undoapproval", "activate", "calculateInterest", "postInterest", "close" });
+            throw new UnrecognizedQueryParamException("command", commandParam,
+                    new Object[] { "reject", "withdrawnByApplicant", "approve", "undoapproval", "activate", "calculateInterest",
+                            "postInterest", "close", "assignSavingsOfficer", "unassignSavingsOfficer" });
         }
 
         return this.toApiJsonSerializer.serialize(result);

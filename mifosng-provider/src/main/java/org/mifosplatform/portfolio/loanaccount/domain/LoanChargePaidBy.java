@@ -1,7 +1,13 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.loanaccount.domain;
 
 import java.math.BigDecimal;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.JoinColumn;
@@ -18,21 +24,26 @@ public class LoanChargePaidBy extends AbstractPersistable<Long> {
     @JoinColumn(name = "loan_transaction_id", nullable = false)
     private LoanTransaction loanTransaction;
 
-    @ManyToOne
+    @ManyToOne(cascade= CascadeType.ALL)
     @JoinColumn(name = "loan_charge_id", nullable = false)
     private LoanCharge loanCharge;
 
     @Column(name = "amount", scale = 6, precision = 19, nullable = false)
     private BigDecimal amount;
 
+    @Column(name = "installment_number", nullable = true)
+    private Integer installmentNumber;
+
     protected LoanChargePaidBy() {
 
     }
 
-    public LoanChargePaidBy(final LoanTransaction loanTransaction, final LoanCharge loanCharge, final BigDecimal amount) {
+    public LoanChargePaidBy(final LoanTransaction loanTransaction, final LoanCharge loanCharge, final BigDecimal amount,
+            Integer installmentNumber) {
         this.loanTransaction = loanTransaction;
         this.loanCharge = loanCharge;
         this.amount = amount;
+        this.installmentNumber = installmentNumber;
     }
 
     public LoanTransaction getLoanTransaction() {
@@ -57,5 +68,10 @@ public class LoanChargePaidBy extends AbstractPersistable<Long> {
 
     public void setAmount(final BigDecimal amount) {
         this.amount = amount;
+    }
+
+    
+    public Integer getInstallmentNumber() {
+        return this.installmentNumber;
     }
 }

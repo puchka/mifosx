@@ -1,4 +1,11 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.loanproduct;
+
+import java.math.BigDecimal;
 
 public interface LoanProductConstants {
 
@@ -52,5 +59,48 @@ public interface LoanProductConstants {
     public static final String multiDisburseLoanParameterName = "multiDisburseLoan";
     public static final String maxTrancheCountParameterName = "maxTrancheCount";
     public static final String outstandingLoanBalanceParameterName = "outstandingLoanBalance";
+
+    public static final String graceOnArrearsAgeingParameterName = "graceOnArrearsAgeing";
+    public static final String overdueDaysForNPAParameterName = "overdueDaysForNPA";
+    public static final String minimumDaysBetweenDisbursalAndFirstRepayment = "minimumDaysBetweenDisbursalAndFirstRepayment";
+    public static final String accountMovesOutOfNPAOnlyOnArrearsCompletionParamName = "accountMovesOutOfNPAOnlyOnArrearsCompletion";
+
+    // Interest recalculation related
+    public static final String isInterestRecalculationEnabledParameterName = "isInterestRecalculationEnabled";
+    public static final String daysInYearTypeParameterName = "daysInYearType";
+    public static final String daysInMonthTypeParameterName = "daysInMonthType";
+    public static final String interestRecalculationCompoundingMethodParameterName = "interestRecalculationCompoundingMethod";
+    public static final String rescheduleStrategyMethodParameterName = "rescheduleStrategyMethod";
+    public static final String recalculationRestFrequencyTypeParameterName = "recalculationRestFrequencyType";
+    public static final String recalculationRestFrequencyIntervalParameterName = "recalculationRestFrequencyInterval";
+    public static final String recalculationRestFrequencyDateParamName = "recalculationRestFrequencyDate";
+    public static final String isArrearsBasedOnOriginalScheduleParamName = "isArrearsBasedOnOriginalSchedule";
+    public static final String preClosureInterestCalculationStrategyParamName = "preClosureInterestCalculationStrategy";
+    public static final String recalculationCompoundingFrequencyTypeParameterName = "recalculationCompoundingFrequencyType";
+    public static final String recalculationCompoundingFrequencyIntervalParameterName = "recalculationCompoundingFrequencyInterval";
+    public static final String recalculationCompoundingFrequencyDateParamName = "recalculationCompoundingFrequencyDate";
+
+    // Guarantee related
+    public static final String holdGuaranteeFundsParamName = "holdGuaranteeFunds";
+    public static final String mandatoryGuaranteeParamName = "mandatoryGuarantee";
+    public static final String minimumGuaranteeFromOwnFundsParamName = "minimumGuaranteeFromOwnFunds";
+    public static final String minimumGuaranteeFromGuarantorParamName = "minimumGuaranteeFromGuarantor";
+
+    public static final String principalThresholdForLastInstallmentParamName = "principalThresholdForLastInstallment";
+    public static final BigDecimal DEFAULT_PRINCIPAL_THRESHOLD_FOR_MULTI_DISBURSE_LOAN = BigDecimal.valueOf(50);
+    public static final BigDecimal DEFAULT_PRINCIPAL_THRESHOLD_FOR_SINGLE_DISBURSE_LOAN = BigDecimal.valueOf(0);
+    // Fixed installment configuration related
+    public static final String canDefineEmiAmountParamName = "canDefineInstallmentAmount";
+    public static final String installmentAmountInMultiplesOfParamName = "installmentAmountInMultiplesOf";
+    
+    //Loan Configurable Attributes
+    public static final String allowAttributeOverridesParamName = "allowAttributeOverrides";
+    public static final String amortizationTypeParamName = "amortizationType";
+    public static final String interestTypeParamName = "interestType";
+    public static final String transactionProcessingStrategyIdParamName = "transactionProcessingStrategyId";
+    public static final String interestCalculationPeriodTypeParamName = "interestCalculationPeriodType";
+    public static final String inArrearsToleranceParamName = "inArrearsTolerance";
+    public static final String repaymentEveryParamName = "repaymentEvery";
+    public static final String graceOnPrincipalAndInterestPaymentParamName = "graceOnPrincipalAndInterestPayment";
 
 }

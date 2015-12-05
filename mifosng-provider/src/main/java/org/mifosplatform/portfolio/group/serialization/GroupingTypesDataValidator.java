@@ -55,7 +55,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.CENTER_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.CENTER_RESOURCE_NAME);
@@ -115,7 +115,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
@@ -178,7 +178,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
@@ -238,7 +238,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.CENTER_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.CENTER_RESOURCE_NAME);
@@ -284,7 +284,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
@@ -330,7 +330,7 @@ public final class GroupingTypesDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.ACTIVATION_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource(resourceName);
 
         final JsonElement element = command.parsedJson();
@@ -347,12 +347,12 @@ public final class GroupingTypesDataValidator {
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
 
-        final Set<String> supportedParametersUnassignStaff = new HashSet<String>(Arrays.asList("staffId"));
+        final Set<String> supportedParametersUnassignStaff = new HashSet<>(Arrays.asList("staffId"));
 
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParametersUnassignStaff);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("group");
 
@@ -368,12 +368,12 @@ public final class GroupingTypesDataValidator {
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
 
-        final Set<String> supportedParametersAssignStaff = new HashSet<String>(Arrays.asList(GroupingTypesApiConstants.staffIdParamName));
+        final Set<String> supportedParametersAssignStaff = new HashSet<>(Arrays.asList(GroupingTypesApiConstants.staffIdParamName,GroupingTypesApiConstants.inheritStaffForClientAccounts));
 
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParametersAssignStaff);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
@@ -381,6 +381,11 @@ public final class GroupingTypesDataValidator {
         final String staffIdParameterName = GroupingTypesApiConstants.staffIdParamName;
         final Long staffId = this.fromApiJsonHelper.extractLongNamed(staffIdParameterName, element);
         baseDataValidator.reset().parameter(staffIdParameterName).value(staffId).notNull().longGreaterThanZero();
+
+        final String inheritStaffForClientAccountsParamName = GroupingTypesApiConstants.inheritStaffForClientAccounts;
+        final Boolean inheritStaffForClientAccounts= this.fromApiJsonHelper.extractBooleanNamed(inheritStaffForClientAccountsParamName,element);
+        baseDataValidator.reset().parameter(inheritStaffForClientAccountsParamName).value(inheritStaffForClientAccounts).ignoreIfNull().notBlank().isOneOfTheseValues(true, false);
+
 
         if (!dataValidationErrors.isEmpty()) { throw new PlatformApiDataValidationException(dataValidationErrors); }
     }
@@ -391,12 +396,12 @@ public final class GroupingTypesDataValidator {
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
 
-        final Set<String> supportedParameters = new HashSet<String>(Arrays.asList(GroupingTypesApiConstants.clientMembersParamName));
+        final Set<String> supportedParameters = new HashSet<>(Arrays.asList(GroupingTypesApiConstants.clientMembersParamName));
 
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("group");
         final String[] clients = this.fromApiJsonHelper.extractArrayNamed(GroupingTypesApiConstants.clientMembersParamName, element);
@@ -411,12 +416,12 @@ public final class GroupingTypesDataValidator {
 
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
 
-        final Set<String> supportedParameters = new HashSet<String>(Arrays.asList(GroupingTypesApiConstants.clientMembersParamName));
+        final Set<String> supportedParameters = new HashSet<>(Arrays.asList(GroupingTypesApiConstants.clientMembersParamName));
 
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("group");
         final String[] clients = this.fromApiJsonHelper.extractArrayNamed(GroupingTypesApiConstants.clientMembersParamName, element);
@@ -434,7 +439,7 @@ public final class GroupingTypesDataValidator {
         this.fromApiJsonHelper
                 .checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_CLOSE_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
 
@@ -460,7 +465,7 @@ public final class GroupingTypesDataValidator {
         this.fromApiJsonHelper
                 .checkForUnsupportedParameters(typeOfMap, json, GroupingTypesApiConstants.GROUP_CLOSE_REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(GroupingTypesApiConstants.CENTER_RESOURCE_NAME);
 
@@ -475,5 +480,45 @@ public final class GroupingTypesDataValidator {
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
 
+    }
+
+    public void validateForAssociateGroups(final String json) {
+        if (StringUtils.isBlank(json)) { throw new InvalidJsonException(); }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+
+        final Set<String> supportedParameters = new HashSet<>(Arrays.asList(GroupingTypesApiConstants.groupMembersParamName));
+
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("group");
+        final String[] groups = this.fromApiJsonHelper.extractArrayNamed(GroupingTypesApiConstants.groupMembersParamName, element);
+        baseDataValidator.reset().parameter(GroupingTypesApiConstants.groupMembersParamName).value(groups).arrayNotEmpty();
+
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
+
+    }
+
+    public void validateForDisassociateGroups(final String json) {
+
+        if (StringUtils.isBlank(json)) { throw new InvalidJsonException(); }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
+
+        final Set<String> supportedParameters = new HashSet<>(Arrays.asList(GroupingTypesApiConstants.groupMembersParamName));
+
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, supportedParameters);
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("group");
+        final String[] groups = this.fromApiJsonHelper.extractArrayNamed(GroupingTypesApiConstants.groupMembersParamName, element);
+        baseDataValidator.reset().parameter(GroupingTypesApiConstants.groupMembersParamName).value(groups).arrayNotEmpty();
+
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
     }
 }

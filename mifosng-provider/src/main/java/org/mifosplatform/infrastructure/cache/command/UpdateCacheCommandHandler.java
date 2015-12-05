@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.mifosplatform.commands.annotation.CommandType;
 import org.mifosplatform.commands.handler.NewCommandSourceHandler;
 import org.mifosplatform.infrastructure.cache.CacheApiConstants;
 import org.mifosplatform.infrastructure.cache.domain.CacheType;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.google.gson.reflect.TypeToken;
 
 @Service
+@CommandType(entity = "CACHE", action = "UPDATE")
 public class UpdateCacheCommandHandler implements NewCommandSourceHandler {
 
     private final CacheWritePlatformService cacheService;
@@ -49,7 +51,7 @@ public class UpdateCacheCommandHandler implements NewCommandSourceHandler {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         command.checkForUnsupportedParameters(typeOfMap, json, CacheApiConstants.REQUEST_DATA_PARAMETERS);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(CacheApiConstants.RESOURCE_NAME.toLowerCase());
 

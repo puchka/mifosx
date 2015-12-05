@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.organisation.holiday.data;
 
 import java.lang.reflect.Type;
@@ -42,7 +47,7 @@ public class HolidayDataValidator {
                 HolidayApiConstants.HOLIDAY_CREATE_OR_UPDATE_REQUEST_DATA_PARAMETERS);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(HolidayApiConstants.HOLIDAY_RESOURCE_NAME);
@@ -68,7 +73,7 @@ public class HolidayDataValidator {
 
             final JsonArray array = topLevelJsonElement.get(HolidayApiConstants.officesParamName).getAsJsonArray();
             if (array.size() > 0) {
-                offices = new HashSet<Long>(array.size());
+                offices = new HashSet<>(array.size());
                 for (int i = 0; i < array.size(); i++) {
                     final JsonObject officeElement = array.get(i).getAsJsonObject();
                     final Long officeId = this.fromApiJsonHelper.extractLongNamed(HolidayApiConstants.officeIdParamName, officeElement);
@@ -90,7 +95,7 @@ public class HolidayDataValidator {
                 HolidayApiConstants.HOLIDAY_CREATE_OR_UPDATE_REQUEST_DATA_PARAMETERS);
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
 
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(HolidayApiConstants.HOLIDAY_RESOURCE_NAME);
@@ -125,7 +130,7 @@ public class HolidayDataValidator {
 
                 final JsonArray array = topLevelJsonElement.get(HolidayApiConstants.officesParamName).getAsJsonArray();
                 if (array.size() > 0) {
-                    offices = new HashSet<Long>(array.size());
+                    offices = new HashSet<>(array.size());
                     for (int i = 0; i < array.size(); i++) {
                         final JsonObject officeElement = array.get(i).getAsJsonObject();
                         final Long officeId = this.fromApiJsonHelper.extractLongNamed(HolidayApiConstants.officeIdParamName, officeElement);

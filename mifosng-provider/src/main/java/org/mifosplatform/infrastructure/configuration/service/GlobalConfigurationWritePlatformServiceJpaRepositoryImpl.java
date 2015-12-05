@@ -50,7 +50,7 @@ public class GlobalConfigurationWritePlatformServiceJpaRepositoryImpl implements
             this.globalConfigurationDataValidator.validateForUpdate(command);
 
             final GlobalConfigurationProperty configItemForUpdate = this.repository.findOneWithNotFoundDetection(configId);
-
+            
             final Map<String, Object> changes = configItemForUpdate.update(command);
 
             if (!changes.isEmpty()) {
@@ -65,6 +65,23 @@ public class GlobalConfigurationWritePlatformServiceJpaRepositoryImpl implements
         }
 
     }
+
+    @Transactional
+    @Override
+    public void addSurveyConfig(final String name)
+    {
+        try{
+            final GlobalConfigurationProperty ppi = GlobalConfigurationProperty.newSurveyConfiguration(name);
+            this.repository.save(ppi);
+        }
+        catch (final DataIntegrityViolationException dve)
+        {
+            handleDataIntegrityIssues(dve);
+        }
+
+    }
+
+
 
     /*
      * Guaranteed to throw an exception no matter what the data integrity issue

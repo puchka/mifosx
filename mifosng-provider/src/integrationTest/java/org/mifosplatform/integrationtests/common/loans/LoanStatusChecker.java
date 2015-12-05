@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests.common.loans;
 
 import static org.junit.Assert.assertFalse;
@@ -37,9 +42,13 @@ public class LoanStatusChecker {
         assertFalse(getStatus(loanStatusHashMap, "active"));
     }
 
-    public static HashMap getStatusOfLoan(final RequestSpecification requestSpec, final ResponseSpecification responseSpec,
+    public static void verifyLoanAccountIsOverPaid(final HashMap loanStatusHashMap) {
+        assertTrue(getStatus(loanStatusHashMap, "overpaid"));
+    }
+
+    public static HashMap<String, Object> getStatusOfLoan(final RequestSpecification requestSpec, final ResponseSpecification responseSpec,
             final Integer loanID) {
-        final String url = "/mifosng-provider/api/v1/loans/" + loanID + "?tenantIdentifier=default";
+        final String url = "/mifosng-provider/api/v1/loans/" + loanID + "?" + Utils.TENANT_IDENTIFIER;
         return Utils.performServerGet(requestSpec, responseSpec, url, "status");
     }
 

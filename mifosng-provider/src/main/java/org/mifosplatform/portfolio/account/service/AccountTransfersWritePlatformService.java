@@ -5,6 +5,8 @@
  */
 package org.mifosplatform.portfolio.account.service;
 
+import java.util.Collection;
+
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.CommandProcessingResult;
 import org.mifosplatform.portfolio.account.PortfolioAccountType;
@@ -22,4 +24,8 @@ public interface AccountTransfersWritePlatformService {
     void reverseAllTransactions(Long accountId, PortfolioAccountType accountTypeId);
 
     void updateLoanTransaction(Long loanTransactionId, LoanTransaction newLoanTransaction);
+    
+    CommandProcessingResult refundByTransfer(JsonCommand command);
+
+    void reverseTransfersWithFromAccountTransactions(Collection<Long> fromTransactionIds, PortfolioAccountType accountTypeId);
 }

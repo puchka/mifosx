@@ -7,31 +7,41 @@ package org.mifosplatform.useradministration.domain;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Date;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
+import javax.persistence.UniqueConstraint;
 
 import org.mifosplatform.infrastructure.core.api.JsonCommand;
 import org.mifosplatform.infrastructure.core.data.EnumOptionData;
+import org.mifosplatform.infrastructure.core.service.DateUtils;
 import org.mifosplatform.infrastructure.security.domain.PlatformUser;
 import org.mifosplatform.infrastructure.security.exception.NoAuthorizationException;
 import org.mifosplatform.infrastructure.security.service.PlatformPasswordEncoder;
 import org.mifosplatform.infrastructure.security.service.RandomPasswordGenerator;
 import org.mifosplatform.organisation.office.domain.Office;
 import org.mifosplatform.organisation.staff.domain.Staff;
+import org.mifosplatform.useradministration.service.AppUserConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.jpa.domain.AbstractPersistable;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
-import org.mifosplatform.infrastructure.core.service.DateUtils;
-
 
 @Entity
 @Table(name = "m_appuser", uniqueConstraints = @UniqueConstraint(columnNames = { "username" }, name = "username_org"))
@@ -88,7 +98,10 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
     @Temporal(TemporalType.DATE)
     private Date lastTimePasswordUpdated;
 
-    public static AppUser fromJson(final Office userOffice, final Set<Role> allRoles, final JsonCommand command) {
+    @Column(name = "password_never_expires", nullable = false)
+    private boolean passwordNeverExpires;
+
+    public static AppUser fromJson(final Office userOffice, final Staff linkedStaff, final Set<Role> allRoles, final JsonCommand command) {
 
         final String username = command.stringValueOfParameterNamed("username");
         String password = command.stringValueOfParameterNamed("password");
@@ -98,12 +111,18 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
             password = new RandomPasswordGenerator(13).generate();
         }
 
+        boolean passwordNeverExpire = false;
+
+        if (command.parameterExists(AppUserConstants.PASSWORD_NEVER_EXPIRES)) {
+            passwordNeverExpire = command.booleanPrimitiveValueOfParameterNamed(AppUserConstants.PASSWORD_NEVER_EXPIRES);
+        }
+
         final boolean userEnabled = true;
         final boolean userAccountNonExpired = true;
         final boolean userCredentialsNonExpired = true;
         final boolean userAccountNonLocked = true;
 
-        final Collection<SimpleGrantedAuthority> authorities = new ArrayList<SimpleGrantedAuthority>();
+        final Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("DUMMY_ROLE_NOT_USED_OR_PERSISTED_TO_AVOID_EXCEPTION"));
 
         final User user = new User(username, password, userEnabled, userAccountNonExpired, userCredentialsNonExpired, userAccountNonLocked,
@@ -113,17 +132,17 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         final String firstname = command.stringValueOfParameterNamed("firstname");
         final String lastname = command.stringValueOfParameterNamed("lastname");
 
-        return new AppUser(userOffice, user, allRoles, email, firstname, lastname);
+        return new AppUser(userOffice, user, allRoles, email, firstname, lastname, linkedStaff, passwordNeverExpire);
     }
 
     protected AppUser() {
         this.accountNonLocked = false;
         this.credentialsNonExpired = false;
-        this.roles = new HashSet<Role>();
+        this.roles = new HashSet<>();
     }
 
     public AppUser(final Office office, final User user, final Set<Role> roles, final String email, final String firstname,
-            final String lastname) {
+            final String lastname, final Staff staff, final boolean passwordNeverExpire) {
         this.office = office;
         this.email = email.trim();
         this.username = user.getUsername().trim();
@@ -136,7 +155,9 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         this.enabled = user.isEnabled();
         this.roles = roles;
         this.firstTimeLoginRemaining = true;
-       this.lastTimePasswordUpdated = DateUtils.getDateOfTenant();
+        this.lastTimePasswordUpdated = DateUtils.getDateOfTenant();
+        this.staff = staff;
+        this.passwordNeverExpires = passwordNeverExpire;
     }
 
     public EnumOptionData organisationalRoleData() {
@@ -158,6 +179,10 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         this.office = differentOffice;
     }
 
+    public void changeStaff(final Staff differentStaff) {
+        this.staff = differentStaff;
+    }
+
     public void updateRoles(final Set<Role> allRoles) {
         if (!allRoles.isEmpty()) {
             this.roles.clear();
@@ -167,7 +192,7 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
 
     public Map<String, Object> update(final JsonCommand command, final PlatformPasswordEncoder platformPasswordEncoder) {
 
-        final Map<String, Object> actualChanges = new LinkedHashMap<String, Object>(7);
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(7);
 
         // unencoded password provided
         final String passwordParamName = "password";
@@ -193,6 +218,13 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         if (command.isChangeInLongParameterNamed(officeIdParamName, this.office.getId())) {
             final Long newValue = command.longValueOfParameterNamed(officeIdParamName);
             actualChanges.put(officeIdParamName, newValue);
+        }
+
+        final String staffIdParamName = "staffId";
+        if (command.hasParameter(staffIdParamName)
+                && (this.staff == null || command.isChangeInLongParameterNamed(staffIdParamName, this.staff.getId()))) {
+            final Long newValue = command.longValueOfParameterNamed(staffIdParamName);
+            actualChanges.put(staffIdParamName, newValue);
         }
 
         final String rolesParamName = "roles";
@@ -229,11 +261,21 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
             this.email = newValue;
         }
 
+        final String passwordNeverExpire = "passwordNeverExpires";
+
+        if (command.hasParameter(passwordNeverExpire)) {
+            if (command.isChangeInBooleanParameterNamed(passwordNeverExpire, this.passwordNeverExpires)) {
+                final boolean newValue = command.booleanPrimitiveValueOfParameterNamed(passwordNeverExpire);
+                actualChanges.put(passwordNeverExpire, newValue);
+                this.passwordNeverExpires = newValue;
+            }
+        }
+
         return actualChanges;
     }
 
     private String[] getRolesAsIdStringArray() {
-        final List<String> roleIds = new ArrayList<String>();
+        final List<String> roleIds = new ArrayList<>();
 
         for (final Role role : this.roles) {
             roleIds.add(role.getId().toString());
@@ -254,6 +296,7 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         this.accountNonExpired = false;
         this.firstTimeLoginRemaining = true;
         this.username = getId() + "_DELETED_" + this.username;
+        this.roles.clear();
     }
 
     public boolean isDeleted() {
@@ -266,7 +309,7 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
     }
 
     private List<GrantedAuthority> populateGrantedAuthorities() {
-        final List<GrantedAuthority> grantedAuthorities = new ArrayList<GrantedAuthority>();
+        final List<GrantedAuthority> grantedAuthorities = new ArrayList<>();
         for (final Role role : this.roles) {
             final Collection<Permission> permissions = role.getPermissions();
             for (final Permission permission : permissions) {
@@ -326,7 +369,17 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         return this.office;
     }
 
-    public Date getLastTimePasswordUpdated(){ return this.lastTimePasswordUpdated; }
+    public Staff getStaff() {
+        return this.staff;
+    }
+
+    public boolean getPasswordNeverExpires() {
+        return this.passwordNeverExpires;
+    }
+
+    public Date getLastTimePasswordUpdated() {
+        return this.lastTimePasswordUpdated;
+    }
 
     public boolean canNotApproveLoanInPast() {
         return hasNotPermissionForAnyOf("ALL_FUNCTIONS", "APPROVEINPAST_LOAN");
@@ -462,12 +515,11 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
             // abstain from validation as user allowed fetch their own data no
             // matter what permissions they have.
         } else {
-            validateHasPermissionTo(function);
+            validateHasReadPermission(function);
         }
     }
 
     public void validateHasCheckerPermissionTo(final String function) {
-
         final String checkerPermissionName = function.toUpperCase() + "_CHECKER";
         if (hasNotPermissionTo("CHECKER_SUPER_USER") && hasNotPermissionTo(checkerPermissionName)) {
             final String authorizationMessage = "User has no authority to be a checker for: " + function;
@@ -496,30 +548,29 @@ public class AppUser extends AbstractPersistable<Long> implements PlatformUser {
         return staffDisplayName;
     }
 
-    public String getEncodedPassword(final JsonCommand command,final PlatformPasswordEncoder platformPasswordEncoder)
-    {
+    public String getEncodedPassword(final JsonCommand command, final PlatformPasswordEncoder platformPasswordEncoder) {
         final String passwordParamName = "password";
         final String passwordEncodedParamName = "passwordEncoded";
         String passwordEncodedValue = null;
 
         if (command.hasParameter(passwordParamName)) {
-            if (command.isChangeInPasswordParameterNamed(passwordParamName, this.password
-                    , platformPasswordEncoder,getId())) {
+            if (command.isChangeInPasswordParameterNamed(passwordParamName, this.password, platformPasswordEncoder, getId())) {
 
-                passwordEncodedValue = command.passwordValueOfParameterNamed(passwordParamName, platformPasswordEncoder,
-                       getId());
+                passwordEncodedValue = command.passwordValueOfParameterNamed(passwordParamName, platformPasswordEncoder, getId());
 
             }
-        }
-        else if (command.hasParameter(passwordEncodedParamName)) {
+        } else if (command.hasParameter(passwordEncodedParamName)) {
             if (command.isChangeInStringParameterNamed(passwordEncodedParamName, this.password)) {
 
                 passwordEncodedValue = command.stringValueOfParameterNamed(passwordEncodedParamName);
-
 
             }
         }
 
         return passwordEncodedValue;
+    }
+
+    public boolean isNotEnabled() {
+        return !isEnabled();
     }
 }

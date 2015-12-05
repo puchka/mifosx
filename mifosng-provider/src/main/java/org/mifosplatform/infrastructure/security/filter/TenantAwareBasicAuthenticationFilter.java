@@ -27,6 +27,7 @@ import org.mifosplatform.infrastructure.security.service.BasicAuthTenantDetailsS
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -49,6 +50,7 @@ import org.springframework.stereotype.Service;
  * is returned.
  */
 @Service(value = "basicAuthenticationProcessingFilter")
+@Profile("basicauth")
 public class TenantAwareBasicAuthenticationFilter extends BasicAuthenticationFilter {
 
     private static boolean firstRequestProcessed = false;
@@ -91,6 +93,7 @@ public class TenantAwareBasicAuthenticationFilter extends BasicAuthenticationFil
             } else {
 
                 String tenantIdentifier = request.getHeader(this.tenantRequestHeader);
+
                 if (org.apache.commons.lang.StringUtils.isBlank(tenantIdentifier)) {
                     tenantIdentifier = request.getParameter("tenantIdentifier");
                 }
@@ -99,12 +102,24 @@ public class TenantAwareBasicAuthenticationFilter extends BasicAuthenticationFil
                         "No tenant identifier found: Add request header of '" + this.tenantRequestHeader
                                 + "' or add the parameter 'tenantIdentifier' to query string of request URL."); }
 
-                // check tenants database for tenantId
-                final MifosPlatformTenant tenant = this.basicAuthTenantDetailsService.loadTenantById(tenantIdentifier);
+                String pathInfo = request.getRequestURI();
+                boolean isReportRequest = false;
+                if (pathInfo != null && pathInfo.contains("report")) {
+                    isReportRequest = true;
+                }
+                final MifosPlatformTenant tenant = this.basicAuthTenantDetailsService.loadTenantById(tenantIdentifier, isReportRequest);
 
                 ThreadLocalContextUtil.setTenant(tenant);
+                String authToken = request.getHeader("Authorization");
+
+                if (authToken != null && authToken.startsWith("Basic ")) {
+                    ThreadLocalContextUtil.setAuthToken(authToken.replaceFirst("Basic ", ""));
+                }
 
                 if (!firstRequestProcessed) {
+                    final String baseUrl = request.getRequestURL().toString().replace(request.getPathInfo(), "/");
+                    System.setProperty("baseUrl", baseUrl);
+
                     final boolean ehcacheEnabled = this.configurationDomainService.isEhcacheEnabled();
                     if (ehcacheEnabled) {
                         this.cacheWritePlatformService.switchToCache(CacheType.SINGLE_NODE);

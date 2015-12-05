@@ -10,9 +10,11 @@ The release artifact (.zip file) has the following structure:
   + mifosplatform-X.Y.Z.RELEASE  ... parent folder which will have the release number on it
   |
   + api-docs ... folder contains html based documentation on the platform API for this release
-  + database ... folder contains database setup and upgrade scripts required for installation
+  + database ... folder contains database setup and upgrade scripts along with sample data required for installation
   + pentahoReports ... folder contains any out-of-the-box reports provided through pentaho
-  + apps ... folder contains apps like reference app and community app that speak to the platform
+  + apps ... folder contains apps like community app that speak to the platform
+  + runmifosx.bat ... launch script for Windows 
+  + runmifosx.sh ... launch script for Mac OS X and Linux
   |
   -- CHANGELOG.MD ... file documents changelog of project up to this release
   -- CONTRIBUTORS.MD ... file provides details on contributors to project
@@ -25,14 +27,29 @@ The release artifact (.zip file) has the following structure:
   
 ## How to Install
 
-The two ways to get up and running with mifos platform is:
+The three ways to get up and running with mifos platform is:
 
 1. Use Amazon AWS and mifosplatform public AMI to spin up a new instance in the cloud
 2. Manually install the prerequisite software on your own machine, follow setup instructions and use release artifacts to get platform running yourself.
+3. ~~The (and the easiest) method is to just fire up the launch script provided in the release artifact and Mifos takes care of all the database, server-side and client-side setup for you.~~ Currently Broken
 
-## 1. Amazon Public AMI
+## 1. Launch script automatic out-of-the box setup
 
-  Use AWS Wizard to launch instance by using this link: <a target="_blank" href="https://console.aws.amazon.com/ec2/home?region=eu-west-1#launchAmi=ami-948b6be3" title="Mifos Platform Public AMI 1.13.0.RELEASE">Mifos Platform AMI (ami-948b6be3)</a>
+Important : Automatic setup is currently broken, please follow the instructions for **Manual Installation** instead. For details of the issue, refer comments at https://mifosforge.jira.com/browse/MIFOSX-1756
+
+The Mifos release artifact contains two launch scripts with names starting with "**runmifosx**". One of them (the one with the *.bat* file extension) is used to launch the platform on a Windows machine while the other (which has the *.sh* file extension) is used to launch the platform on Mac OS X and Linux. Just double-click on the respective script (depending on your OS) and voila! you have your own Mifos X platform running locally on your computer. 
+
+**Note**: *In case your script does not launch by double clicking on Linux or Mac OS X, here's what you can do. Head over to bash and type the following:*
+
+```
+$ cd /path/where/runmifosx.sh/is/located
+$ chmod 0755 ./runmifosx.sh
+$ ./runmifosx.sh
+```
+
+## 2. Amazon Public AMI
+
+  Use AWS Wizard to launch instance by using this link: <a target="_blank" href="https://console.aws.amazon.com/ec2/home?region=ap-southeast-1#launchAmi=ami-f1915092" title="Latest Mifos Platform Public AMI">Mifos Platform AMI (ami-f1915092)</a>
 
   *Note:* Read through the following as you step through the AWS Wizard
   
@@ -44,34 +61,32 @@ The two ways to get up and running with mifos platform is:
   - You will be asked to use a 'keypair' which you will need to SSH onto the new instance, if this is your first time create a new keypair, be srue to download it and store in place as you will need it later, otherwise use an existing keypair.
   - When the instance starts, the following should be available at:
     - Platform application should be available @ https://[public DNS]:8443/mifosng-provider/api/v1/offices?tenantIdentifier=default&pretty=true
-    - Reference application should be available @ https://[public DNS]:8443/IndividualLendingGeneralJavaScript/IndivLendHome.html?baseApiUrl=https://[server ip address]:8443/mifosng-provider/api/v1/
+    - Community app should be available @ https://[public DNS]:8443/community-app
     - API docs should be available @ https://[public DNS]:8443/api-docs/apiLive.htm
 
-  *Name:* Mifos Platform 1.13.0.RELEASE Public AMI
+  *Name:* Mifos Platform 15.11.2.RELEASE Public AMI
   
- - AMI ID: ami-948b6be3
- - Kernel ID: aki-71665e05
- - Name: Mifos Platform 1.13.0.RELEASE Public AMI
- - Owner: 476083131096
- - Source: 476083131096/Mifos Platform 1.13.0.RELEASE Public AMI
+ - AMI ID: ami-f1915092
+ - Kernel ID: aki-503e7402
+ - Name: Mifos Platform 15.11.2.RELEASE Public AMI
+ - Owner: 239215483039
+ - Source: 239215483039/Mifos X-15.11.2 release
  - Architecture: Ubuntu12.04 LTS x86_64
- - Built starting from Ubuntu AMI ami-35acbb41
- - Java 1.6_45 32 bit JVM
+ - Built starting from Ubuntu AMI ami-f1915092
+ - Java 1.7.0_51 64 bit JVM
  - Tomcat 7.0.39 (with SSL configured for self-signed certificate)
  - MySql 5.5.31
- - Mifos Platform 1.13.0.RELEASE
- - Mifos Reference App 1.13.0.RELEASE
 
-## 2. Manual Installation
+## 3. Manual Installation
 
-### 2.1 Prerequisite Software
+### 3.1 Prerequisite Software
 
   Before running mifos platform you must have the following software installed:
   - Oracle Java - JDK 7 (http://www.oracle.com/technetwork/java/javase/downloads/index.html)
   - Oracle MySQL - (http://dev.mysql.com/downloads/)
   - Apache Tomcat 7 - (http://tomcat.apache.org/download-70.cgi)
 
-### 2.2 MySQL Setup
+### 3.2 MySQL Setup
 
   Assumption: MySQL server is now installed.
   
@@ -83,7 +98,7 @@ The two ways to get up and running with mifos platform is:
   
   If you have never installed mifosplatform before follow section 2.2.1 for first time setup of database, otherwise read section 2.2.2 on database upgrades.
   
-#### 2.2.1 First Time Database setup
+#### 3.2.1 First Time Database setup
 
   Mifos platform has support for hosting multiple tenants so we use two database schemas:
    - *mifosplatform-tenants*: which is responsible for persisting the tenant information which is used when deciding what schema each incoming request in the platform should route to. It acts as a registry which contains the details of all the tenant databases, and their connection information, which is used by MifosX to connect to the appropriate tenant.
@@ -96,56 +111,115 @@ The two ways to get up and running with mifos platform is:
   exit
   ```
 
-  Step two: populate mifosplatform-tenants database using ```database/mifospltaform-tenants-first-time-install.sql```
-  ```
-  mysql -uroot -pmysql mifosplatform-tenants < database/mifospltaform-tenants-first-time-install.sql
-  ```
-  
-  Step three: create mifostenant-default database
+  Step two: create mifostenant-default database
   ```
   mysql -uroot -pmysql
   create database `mifostenant-default`;
   exit
   ```
+  The tables and lookup data for both databases are created on application startup.
 
-#### 2.2.2 Upgrade existing database(s)
+  Step three (optional): to be followed only if your mysql credentials are other than root/mysql
+  
+  Manually restore the contents of *mifosplatform-tenants* database
 
-  Any *tenant* databases will be upgraded automatically when the application starts if the *auto_update* field of the *tenants* database table is enabled(=1). This is the default setting.
+  ```
+  mysql -uroot -pmysql mifosplatform-tenants < database/mifospltaform-tenants-first-time-install.sql
+  ```
+ Next, update the default credentials for connecting to *mifoplatform-default* database stored in the *tenants* table of *mifosplatform-tenants* with your credentials
+
+  ```
+  UPDATE tenants SET schema_username = "your_username", schema_password = "your_password" WHERE identifier = "default";
+  ```
+  Step four (optional): to be followed only if your mysql server hostname is other than 'localhost'
   
-  Upgrading your database in this way is the recomended way as it will upgrade any *tenants* setup in the *mifosplatform-tenants* database but can be disabled by setting the *auto_update* field of the tenant to zero.
+  Update the default server for connecting to *mifoplatform-default* database stored in the *tenants* table of *mifosplatform-tenants* with your mysql server hostname
   
-### 2.3 Tomcat 7 Setup
+  ```
+  UPDATE tenants SET schema_server = "[server hostname/ip]" WHERE identifier = "default";
+  ```
+
+#### 3.2.2 Upgrade existing database(s)
+
+  The list database *mifosplatform-tenants* is upgraded when the application starts. Any *tenant* databases will also be upgraded automatically when the application starts if the *auto_update* field of the *tenants* database table is enabled(=1). This is the default setting.
+  
+  Upgrading your database in this way is the recommended way as it will upgrade any *tenants* setup in the *mifosplatform-tenants* database but can be disabled by setting the *auto_update* field of the tenant to zero.
+  
+##### 3.2.2.1 Special Instructions for those upgrading from version 1.24.* or lower
+
+Starting from version 1.25.* , updates to *mifosplatform-tenants* database are managed by Flyway (http://flywaydb.org/). To ensure that flyway works correctly, verify that table *schema_version* is present along with two entries in *mifosplatform-tenants* database.
+
+You can do so as follows
+
+````
+mysql -uroot -pmysql
+ 
+use `mifosplatform-tenants`;
+select * from schema_version;
+```
+
+If the table does not exist, create the same using the script at https://gist.github.com/vishwasbabu/dc105b6a9450cff8ff1f
+
+Next, check if the patch for "externalizing mysql connection properties" has been run (i.e if you are updating from 1.21 or a higher version of Mifos X)
+
+````
+mysql -uroot -pmysql
+ 
+use `mifosplatform-tenants`;
+select pool_initial_size from tenants;
+```
+
+If the above query does **not** throw an error (Unknown column 'pool_initial_size'), *schema_version* needs to be updated with the details of this patch by executing the scripts below
+
+```
+mysql -uroot -pmysql
+ 
+use `mifosplatform-tenants`;
+INSERT INTO `schema_version` (`version_rank`, `installed_rank`, `version`, `description`, `type`, `script`, `checksum`, `installed_by`, `installed_on`, `execution_time`, `success`) VALUES
+  (2, 2, '2', 'externalize-connection-properties', 'SQL', 'V2__externalize-connection-properties.sql', 210473669, 'root', '2014-10-12 22:13:51', 661, 1);
+```
+
+#### 3.2.3 Load *mifostenant-default* schema with sample data (optional)
+  Every release ships with sample data (offices, users, customers, loan products, savings products and a chart of accounts). The same can be restored by running the following command
+  
+   ```
+  mysql -uroot -pmysql mifostenant-default < database/migrations/sample_data/load_sample_data.sql
+  ```
+
+  
+### 3.3 Tomcat 7 Setup
 
   Assumption: You have downloaded and installed Tomcat 7 correctly for your operation system: see http://tomcat.apache.org/tomcat-7.0-doc/setup.html
   
-#### 2.3.1 Environment Variables Check
+#### 3.3.1 Environment Variables Check
 
   Check that the following environment variables exist:
-  - JAVA_HOME ... should point to directory where a 1.6 JDK or JRE is on machine
+  - JAVA_HOME ... should point to directory where a 1.7 JDK or JRE is on machine
   - CATALINA_HOME ... should point to a directory where a Tomcat 7 instance is installed
 
   Check that the following is on your path:
   - %JAVA_HOME%\bin;
 
-#### 2.3.2 Logging
+#### 3.3.2 Logging
 
   - In the [TOMCAT_HOME]/logs create a file called ```mifos-platform.log```
 
-#### 2.3.3 Libraries
+#### 3.3.3 Libraries
 
   Ensure the following libraries are in the [TOMCAT_HOME]/lib folder
-  - tomcat-jdbc.jar
-  - mysql-connector-java-5.1.22 (You will need to download latest MySQL Connector/J Jar file from http://dev.mysql.com/downloads/connector/j/)
+  - tomcat-jdbc.jar (You can download the same from http://central.maven.org/maven2/org/apache/tomcat/tomcat-jdbc/7.0.57/tomcat-jdbc-7.0.57.jar)
+  - mysql-connector-java-5.1.22 (You will need to download the latest MySQL Connector/J Jar file from http://dev.mysql.com/downloads/connector/j/)
 
-#### 2.3.4 Configure for SSL
+#### 3.3.4 Configure for SSL
 
   Generate a new keystore using java keytool (if you havent already done this):
   - Follow docs to create keystore.(http://tomcat.apache.org/tomcat-7.0-doc/ssl-howto.html#Configuration)
+   
   - Update server.xml as in docs. (Ther server.xml configuration given in the configure tomcat 7 below is what is need.)
 
   ```sudo keytool -genkey -alias mifostom -keyalg RSA -keystore /home/ubuntu/.keystore```
 
-#### 2.3.5 Update tomcat configuration files for SSL, compression and JNDI connection to MySql
+#### 3.3.5 Update tomcat configuration files for SSL, compression and JNDI connection to MySql
 
 ```
 <?xml version='1.0' encoding='utf-8'?>
@@ -214,19 +288,24 @@ The two ways to get up and running with mifos platform is:
 </Server>
 ```
 
-#### 2.3.6 Drop application into tomcat webapps folder
+#### 3.3.6 Drop application into tomcat webapps folder
 
   Drop the following from the release artifact into the [TOMCAT_HOME]/webapps folder:
   - mifosng-provider.war
   
   Drop the following from the release artifact into [TOMCAT_HOME]/webapps/ROOT folder:
-  - The entire ```apps/IndividualLendingGeneralJavaScript``` folder
-  - The entire ```apps/community-app``` folder. This contains a preview version of the community-app which will soon deprecate the older Reference app (IndividualLendingGeneralJavaScript)
+  - The entire ```apps/community-app``` folder. 
   - The entire api-docs folder
 
-#### 2.3.7 Startup tomcat
+#### 3.3.7 Startup tomcat
   Startup tomcat:
   - Platform application should be available @ https://[server ip address]:8443/mifosng-provider/api/v1/offices?tenantIdentifier=default&pretty=true
-  - Reference application should be available @ https://[server ip address]:8443/IndividualLendingGeneralJavaScript/IndivLendHome.html?baseApiUrl=https://[server ip address]:8443/mifosng-provider/api/v1/
-  - Preview version of the Community application should be available @ https://[server ip address]:8443/community-app?baseApiUrl=https://[server ip address]:8443/mifosng-provider/api/v1/  (Refresh the Browser if you see untranslated labels while loading the application for the first time)
+  - Community application should be available @ https://[server ip address]:8443/community-app?baseApiUrl=https://[server ip address]:8443/mifosng-provider/api/v1/
   - API docs should be available @ https://[server ip address]:8443/api-docs/apiLive.htm
+  
+  *where [server ip address] is the hostname or IP address of your computer. For instance, if you've installed Mifos on your local machine then [server ip address] is localhost*
+
+## How to integrate the web front-end UI with the back-end
+
+To be able to use the front-end UI along with the back-end, you simply need to copy the webapp's source code files to the ```apps``` folder. For instance, you could copy the source code files of the community app to ```apps/community-app```. This would enable you to access the commuity app from the following URL:
+*https://[server ip address]:8443/mifosng-provider/apps/community-app?baseApiUrl=https://[server ip address]:8443*

@@ -24,13 +24,13 @@ import org.mifosplatform.infrastructure.core.domain.JdbcSupport;
 import org.mifosplatform.infrastructure.core.service.Page;
 import org.mifosplatform.infrastructure.core.service.PaginationHelper;
 import org.mifosplatform.infrastructure.core.service.RoutingDataSource;
+import org.mifosplatform.infrastructure.core.service.SearchParameters;
 import org.mifosplatform.infrastructure.security.service.PlatformSecurityContext;
 import org.mifosplatform.organisation.office.data.OfficeData;
 import org.mifosplatform.organisation.office.service.OfficeReadPlatformService;
 import org.mifosplatform.organisation.staff.data.StaffData;
 import org.mifosplatform.organisation.staff.service.StaffReadPlatformService;
 import org.mifosplatform.portfolio.client.data.ClientData;
-import org.mifosplatform.portfolio.client.service.ClientReadPlatformService;
 import org.mifosplatform.portfolio.group.api.GroupingTypesApiConstants;
 import org.mifosplatform.portfolio.group.data.CenterData;
 import org.mifosplatform.portfolio.group.data.GroupGeneralData;
@@ -49,28 +49,26 @@ public class GroupReadPlatformServiceImpl implements GroupReadPlatformService {
 
     private final JdbcTemplate jdbcTemplate;
     private final PlatformSecurityContext context;
-    private final ClientReadPlatformService clientReadPlatformService;
     private final OfficeReadPlatformService officeReadPlatformService;
     private final StaffReadPlatformService staffReadPlatformService;
     private final CenterReadPlatformService centerReadPlatformService;
     private final CodeValueReadPlatformService codeValueReadPlatformService;
 
     private final AllGroupTypesDataMapper allGroupTypesDataMapper = new AllGroupTypesDataMapper();
-    private final PaginationHelper<GroupGeneralData> paginationHelper = new PaginationHelper<GroupGeneralData>();
+    private final PaginationHelper<GroupGeneralData> paginationHelper = new PaginationHelper<>();
     private final PaginationParametersDataValidator paginationParametersDataValidator;
 
-    private final static Set<String> supportedOrderByValues = new HashSet<String>(Arrays.asList("id", "name", "officeId", "officeName"));
+    private final static Set<String> supportedOrderByValues = new HashSet<>(Arrays.asList("id", "name", "officeId", "officeName"));
 
     @Autowired
     public GroupReadPlatformServiceImpl(final PlatformSecurityContext context, final RoutingDataSource dataSource,
-            final CenterReadPlatformService centerReadPlatformService, final ClientReadPlatformService clientReadPlatformService,
+            final CenterReadPlatformService centerReadPlatformService,
             final OfficeReadPlatformService officeReadPlatformService, final StaffReadPlatformService staffReadPlatformService,
             final CodeValueReadPlatformService codeValueReadPlatformService,
             final PaginationParametersDataValidator paginationParametersDataValidator) {
         this.context = context;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.centerReadPlatformService = centerReadPlatformService;
-        this.clientReadPlatformService = clientReadPlatformService;
         this.officeReadPlatformService = officeReadPlatformService;
         this.staffReadPlatformService = staffReadPlatformService;
         this.codeValueReadPlatformService = codeValueReadPlatformService;
@@ -102,20 +100,17 @@ public class GroupReadPlatformServiceImpl implements GroupReadPlatformService {
             staffOptions = null;
         }
 
-        Collection<ClientData> clientOptions = this.clientReadPlatformService.retrieveAllForLookupByOfficeId(defaultOfficeId);
-        if (CollectionUtils.isEmpty(clientOptions)) {
-            clientOptions = null;
-        }
-
         final Collection<CodeValueData> availableRoles = this.codeValueReadPlatformService
                 .retrieveCodeValuesByCode(GroupingTypesApiConstants.GROUP_ROLE_NAME);
 
         final Long centerId = null;
+        final String accountNo = null;
         final String centerName = null;
         final Long staffId = null;
         final String staffName = null;
-
-        return GroupGeneralData.template(defaultOfficeId, centerId, centerName, staffId, staffName, centerOptions, officeOptions,
+        final Collection<ClientData> clientOptions = null;
+        
+        return GroupGeneralData.template(defaultOfficeId, centerId, accountNo, centerName, staffId, staffName, centerOptions, officeOptions,
                 staffOptions, clientOptions, availableRoles);
     }
 
@@ -232,6 +227,15 @@ public class GroupReadPlatformServiceImpl implements GroupReadPlatformService {
             extraCriteria.delete(0, 4);
         }
 
+        final Long staffId = searchCriteria.getStaffId();
+        if (staffId != null) {
+            extraCriteria.append(" and g.staff_id = ").append(staffId);
+        }
+        
+        if(searchCriteria.isOrphansOnly()){
+        	extraCriteria.append(" and g.parent_id IS NULL");
+        }
+
         return extraCriteria.toString();
     }
 
@@ -261,20 +265,21 @@ public class GroupReadPlatformServiceImpl implements GroupReadPlatformService {
     private static final class GroupLookupDataMapper implements RowMapper<GroupGeneralData> {
 
         public final String schema() {
-            return "g.id as id, g.display_name as displayName from m_group g where g.level_id = 2 ";
+            return "g.id as id, g.account_no as accountNo, g.display_name as displayName from m_group g where g.level_id = 2 ";
         }
 
         @Override
         public GroupGeneralData mapRow(final ResultSet rs, @SuppressWarnings("unused") final int rowNum) throws SQLException {
             final Long id = JdbcSupport.getLong(rs, "id");
+            final String accountNo = rs.getString("accountNo");
             final String displayName = rs.getString("displayName");
-            return GroupGeneralData.lookup(id, displayName);
+            return GroupGeneralData.lookup(id, accountNo, displayName);
         }
     }
 
     @Override
     public GroupGeneralData retrieveGroupWithClosureReasons() {
-        final List<CodeValueData> closureReasons = new ArrayList<CodeValueData>(
+        final List<CodeValueData> closureReasons = new ArrayList<>(
                 this.codeValueReadPlatformService.retrieveCodeValuesByCode(GroupingTypesApiConstants.GROUP_CLOSURE_REASON));
         return GroupGeneralData.withClosureReasons(closureReasons);
     }

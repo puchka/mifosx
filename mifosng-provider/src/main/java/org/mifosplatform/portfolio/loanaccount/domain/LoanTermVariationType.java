@@ -1,9 +1,15 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.loanaccount.domain;
 
 public enum LoanTermVariationType {
 
     INVALID(0, "loanTermType.invalid"), //
-    EMI_AMOUNT(1, "loanTermType.emiAmount"); //
+    EMI_AMOUNT(1, "loanTermType.emiAmount"), //
+    INTEREST_RATE(2, "loanTermType.interestRate");
 
     private final Integer value;
     private final String code;
@@ -28,11 +34,18 @@ public enum LoanTermVariationType {
             case 1:
                 enumeration = LoanTermVariationType.EMI_AMOUNT;
             break;
+            case 2:
+                enumeration = LoanTermVariationType.INTEREST_RATE;
+            break;
         }
         return enumeration;
     }
 
     public boolean isEMIAmountVariation() {
         return this.value.equals(LoanTermVariationType.EMI_AMOUNT.getValue());
+    }
+    
+    public boolean isInterestRateVariation() {
+        return this.value.equals(LoanTermVariationType.INTEREST_RATE.getValue());
     }
 }

@@ -34,9 +34,12 @@ public class Role extends AbstractPersistable<Long> {
     @Column(name = "description", nullable = false, length = 500)
     private String description;
 
+    @Column(name = "is_disabled", nullable = false)
+    private Boolean disabled;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "m_role_permission", joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
-    private final Set<Permission> permissions = new HashSet<Permission>();
+    private final Set<Permission> permissions = new HashSet<>();
 
     public static Role fromJson(final JsonCommand command) {
         final String name = command.stringValueOfParameterNamed("name");
@@ -51,11 +54,12 @@ public class Role extends AbstractPersistable<Long> {
     public Role(final String name, final String description) {
         this.name = name.trim();
         this.description = description.trim();
+        this.disabled = false;
     }
 
     public Map<String, Object> update(final JsonCommand command) {
 
-        final Map<String, Object> actualChanges = new LinkedHashMap<String, Object>(7);
+        final Map<String, Object> actualChanges = new LinkedHashMap<>(7);
 
         final String nameParamName = "name";
         if (command.isChangeInStringParameterNamed(nameParamName, this.name)) {
@@ -109,6 +113,22 @@ public class Role extends AbstractPersistable<Long> {
     }
 
     public RoleData toData() {
-        return new RoleData(getId(), this.name, this.description);
+        return new RoleData(getId(), this.name, this.description, this.disabled);
+    }
+
+    public void disableRole() {
+        this.disabled = true;
+    }
+
+    public Boolean isDisabled() {
+        return this.disabled;
+    }
+
+    public void enableRole() {
+        this.disabled = false;
+    }
+
+    public Boolean isEnabled() {
+        return this.disabled;
     }
 }

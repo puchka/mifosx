@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests;
 
 import java.util.ArrayList;
@@ -38,9 +43,9 @@ public class TemplateIntegrationTest {
     @Test
     public void test() {
 
-        final HashMap<String, String> metadata = new HashMap<String, String>();
+        final HashMap<String, String> metadata = new HashMap<>();
         metadata.put("user", "resource_url");
-        final HashMap<String, Object> map = new HashMap<String, Object>();
+        final HashMap<String, Object> map = new HashMap<>();
         map.put("name", "foo");
         map.put("text", "Hello {{template}}");
         map.put("mappers", metadata);

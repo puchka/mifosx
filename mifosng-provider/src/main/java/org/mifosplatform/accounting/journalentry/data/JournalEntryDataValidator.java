@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.accounting.journalentry.data;
 
 import java.lang.reflect.Type;
@@ -24,7 +29,7 @@ public class JournalEntryDataValidator {
 
     private final FromJsonHelper fromApiJsonHelper;
 
-    public static final Set<String> RUNNING_BALANCE_UPDATE_REQUEST_DATA_PARAMETERS = new HashSet<String>(
+    public static final Set<String> RUNNING_BALANCE_UPDATE_REQUEST_DATA_PARAMETERS = new HashSet<>(
             Arrays.asList(JournalEntryJsonInputParams.OFFICE_ID.getValue()));
 
     @Autowired
@@ -35,7 +40,7 @@ public class JournalEntryDataValidator {
     public void validateForUpdateRunningbalance(final JsonCommand command) {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {}.getType();
         this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, command.json(), RUNNING_BALANCE_UPDATE_REQUEST_DATA_PARAMETERS);
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("GLJournalEntry");
 
         if (this.fromApiJsonHelper.parameterExists(JournalEntryJsonInputParams.OFFICE_ID.getValue(), command.parsedJson())) {

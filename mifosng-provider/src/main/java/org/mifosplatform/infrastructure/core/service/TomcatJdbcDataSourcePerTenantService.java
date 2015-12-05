@@ -13,6 +13,7 @@ import javax.sql.DataSource;
 import org.apache.tomcat.jdbc.pool.PoolConfiguration;
 import org.apache.tomcat.jdbc.pool.PoolProperties;
 import org.mifosplatform.infrastructure.core.domain.MifosPlatformTenant;
+import org.mifosplatform.infrastructure.core.domain.MifosPlatformTenantConnection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TomcatJdbcDataSourcePerTenantService implements RoutingDataSourceService {
 
-    private final Map<Long, DataSource> tenantToDataSourceMap = new HashMap<Long, DataSource>(1);
+    private final Map<Long, DataSource> tenantToDataSourceMap = new HashMap<>(1);
     private final DataSource tenantDataSource;
 
     @Autowired
@@ -42,17 +43,20 @@ public class TomcatJdbcDataSourcePerTenantService implements RoutingDataSourceSe
         // default to tenant database datasource
         DataSource tenantDataSource = this.tenantDataSource;
 
-        final MifosPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
+        final MifosPlatformTenant tenant = ThreadLocalContextUtil.getTenant(); 
         if (tenant != null) {
+            final MifosPlatformTenantConnection tenantConnection = tenant.getConnection();
+
             synchronized (this.tenantToDataSourceMap) {
-                // if tenant information available switch to appropriate
+                // if tenantConnection information available switch to
+                // appropriate
                 // datasource
                 // for that tenant.
-                if (this.tenantToDataSourceMap.containsKey(tenant.getId())) {
-                    tenantDataSource = this.tenantToDataSourceMap.get(tenant.getId());
+                if (this.tenantToDataSourceMap.containsKey(tenantConnection.getConnectionId())) {
+                    tenantDataSource = this.tenantToDataSourceMap.get(tenantConnection.getConnectionId());
                 } else {
-                    tenantDataSource = createNewDataSourceFor(tenant);
-                    this.tenantToDataSourceMap.put(tenant.getId(), tenantDataSource);
+                    tenantDataSource = createNewDataSourceFor(tenantConnection);
+                    this.tenantToDataSourceMap.put(tenantConnection.getConnectionId(), tenantDataSource);
                 }
             }
         }
@@ -60,36 +64,43 @@ public class TomcatJdbcDataSourcePerTenantService implements RoutingDataSourceSe
         return tenantDataSource;
     }
 
-    private DataSource createNewDataSourceFor(final MifosPlatformTenant tenant) {
+    // creates the data source oltp and report databases
+    private DataSource createNewDataSourceFor(final MifosPlatformTenantConnection tenantConnectionObj) {
         // see
         // http://www.tomcatexpert.com/blog/2010/04/01/configuring-jdbc-pool-high-concurrency
 
-        final String jdbcUrl = tenant.databaseURL();
+        // see also org.mifosplatform.DataSourceProperties.setMifosDefaults()
 
+        final String jdbcUrl = tenantConnectionObj.databaseURL();
         final PoolConfiguration poolConfiguration = new PoolProperties();
         poolConfiguration.setDriverClassName("com.mysql.jdbc.Driver");
-        poolConfiguration.setName(tenant.getSchemaName() + "_pool");
+        poolConfiguration.setName(tenantConnectionObj.getSchemaName() + "_pool");
         poolConfiguration.setUrl(jdbcUrl);
-        poolConfiguration.setUsername(tenant.getSchemaUsername());
-        poolConfiguration.setPassword(tenant.getSchemaPassword());
+        poolConfiguration.setUsername(tenantConnectionObj.getSchemaUsername());
+        poolConfiguration.setPassword(tenantConnectionObj.getSchemaPassword());
 
-        poolConfiguration.setInitialSize(5);
-        // poolConfiguration.setMaxActive(5);
-        // poolConfiguration.setMinIdle(1);
-        // poolConfiguration.setMaxIdle(4);
+        poolConfiguration.setInitialSize(tenantConnectionObj.getInitialSize());
 
-        // poolConfiguration.setSuspectTimeout(60);
-        // poolConfiguration.setTimeBetweenEvictionRunsMillis(30000);
-        // poolConfiguration.setMinEvictableIdleTimeMillis(60000);
-
-        poolConfiguration.setTestOnBorrow(true);
+        poolConfiguration.setTestOnBorrow(tenantConnectionObj.isTestOnBorrow());
         poolConfiguration.setValidationQuery("SELECT 1");
-        poolConfiguration.setValidationInterval(30000);
+        poolConfiguration.setValidationInterval(tenantConnectionObj.getValidationInterval());
 
-        poolConfiguration.setRemoveAbandoned(true);
-        poolConfiguration.setRemoveAbandonedTimeout(60);
-        poolConfiguration.setLogAbandoned(true);
-        poolConfiguration.setAbandonWhenPercentageFull(50);
+        poolConfiguration.setRemoveAbandoned(tenantConnectionObj.isRemoveAbandoned());
+        poolConfiguration.setRemoveAbandonedTimeout(tenantConnectionObj.getRemoveAbandonedTimeout());
+        poolConfiguration.setLogAbandoned(tenantConnectionObj.isLogAbandoned());
+        poolConfiguration.setAbandonWhenPercentageFull(tenantConnectionObj.getAbandonWhenPercentageFull());
+
+        /**
+         * Vishwas- Do we need to enable the below properties and add
+         * ResetAbandonedTimer for long running batch Jobs?
+         **/
+        // poolConfiguration.setMaxActive(tenant.getMaxActive());
+        // poolConfiguration.setMinIdle(tenant.getMinIdle());
+        // poolConfiguration.setMaxIdle(tenant.getMaxIdle());
+
+        // poolConfiguration.setSuspectTimeout(tenant.getSuspectTimeout());
+        // poolConfiguration.setTimeBetweenEvictionRunsMillis(tenant.getTimeBetweenEvictionRunsMillis());
+        // poolConfiguration.setMinEvictableIdleTimeMillis(tenant.getMinEvictableIdleTimeMillis());
 
         poolConfiguration.setJdbcInterceptors("org.apache.tomcat.jdbc.pool.interceptor.ConnectionState;"
                 + "org.apache.tomcat.jdbc.pool.interceptor.StatementFinalizer;org.apache.tomcat.jdbc.pool.interceptor.SlowQueryReport");

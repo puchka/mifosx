@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.portfolio.search.data;
 
 import java.lang.reflect.Type;
@@ -40,7 +45,7 @@ public class AdHocQueryDataValidator {
 
         final JsonElement element = this.fromApiJsonHelper.parse(json);
 
-        final List<ApiParameterError> dataValidationErrors = new ArrayList<ApiParameterError>();
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors)
                 .resource(AdHocQuerySearchConstants.AD_HOC_SEARCH_QUERY_RESOURCE_NAME);
 
@@ -266,7 +271,7 @@ public class AdHocQueryDataValidator {
     }
 
     private List<Long> extractLongValuesList(List<String> listTobeConverted) {
-        List<Long> tempList = new ArrayList<Long>();
+        List<Long> tempList = new ArrayList<>();
         for (String temp : listTobeConverted) {
             tempList.add(Long.valueOf(temp));
         }

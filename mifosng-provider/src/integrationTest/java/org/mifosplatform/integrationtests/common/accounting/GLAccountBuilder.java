@@ -1,3 +1,8 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 package org.mifosplatform.integrationtests.common.accounting;
 
 import java.util.Calendar;
@@ -29,7 +34,7 @@ public class GLAccountBuilder {
     private static String description = "DEFAULT_DESCRIPTION";
 
     public String build() {
-        final HashMap<String, String> map = new HashMap<String, String>();
+        final HashMap<String, String> map = new HashMap<>();
         map.put("name", GLAccountBuilder.name);
         map.put("glCode", GLAccountBuilder.GLCode);
         map.put("manualEntriesAllowed", GLAccountBuilder.manualEntriesAllowed);
